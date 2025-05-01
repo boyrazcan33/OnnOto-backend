@@ -163,7 +163,7 @@ public class DatabaseMigration {
                                 ")"
                 );
 
-                // Execute each SQL statement
+                // Execute each SQL statement for creating tables
                 for (String sql : sqlStatements) {
                     try {
                         jdbcTemplate.execute(sql);
@@ -174,7 +174,7 @@ public class DatabaseMigration {
                     }
                 }
 
-                // Create indexes after tables
+                // Create indexes after tables are created
                 createIndexes(jdbcTemplate);
 
                 logger.info("Database initialization completed successfully");
@@ -186,61 +186,65 @@ public class DatabaseMigration {
     }
 
     /**
-     * Create database indexes for better performance
+     * Create database indexes for optimizing query performance.
+     * These indexes significantly improve search, filtering, and geospatial operations.
      */
     private void createIndexes(JdbcTemplate jdbcTemplate) {
-        logger.info("Creating database indexes...");
+        logger.info("Creating database performance indexes...");
 
         // List of SQL statements to create indexes
         List<String> indexStatements = new ArrayList<>(Arrays.asList(
-                // Create indexes for common filters
+                // Indexes for stations
                 "CREATE INDEX IF NOT EXISTS idx_stations_network ON stations(network_id)",
                 "CREATE INDEX IF NOT EXISTS idx_stations_operator ON stations(operator_id)",
                 "CREATE INDEX IF NOT EXISTS idx_stations_city ON stations(city)",
                 "CREATE INDEX IF NOT EXISTS idx_stations_reliability ON stations(reliability_score)",
                 "CREATE INDEX IF NOT EXISTS idx_stations_status_update ON stations(last_status_update)",
 
-                // Create indexes for connectors
+                // Indexes for connectors
                 "CREATE INDEX IF NOT EXISTS idx_connectors_station ON connectors(station_id)",
                 "CREATE INDEX IF NOT EXISTS idx_connectors_type ON connectors(connector_type)",
                 "CREATE INDEX IF NOT EXISTS idx_connectors_status ON connectors(status)",
 
-                // Create indexes for status history
+                // Indexes for status history
                 "CREATE INDEX IF NOT EXISTS idx_status_history_station ON status_history(station_id)",
                 "CREATE INDEX IF NOT EXISTS idx_status_history_connector ON status_history(connector_id)",
                 "CREATE INDEX IF NOT EXISTS idx_status_history_date ON status_history(recorded_at)",
 
-                // Create indexes for reports
+                // Indexes for reports
                 "CREATE INDEX IF NOT EXISTS idx_reports_station ON reports(station_id)",
                 "CREATE INDEX IF NOT EXISTS idx_reports_device ON reports(device_id)",
                 "CREATE INDEX IF NOT EXISTS idx_reports_date ON reports(created_at)",
                 "CREATE INDEX IF NOT EXISTS idx_reports_type ON reports(report_type)",
 
-                // Create indexes for anomalies
+                // Indexes for anomalies
                 "CREATE INDEX IF NOT EXISTS idx_anomalies_station ON anomalies(station_id)",
                 "CREATE INDEX IF NOT EXISTS idx_anomalies_type ON anomalies(anomaly_type)",
                 "CREATE INDEX IF NOT EXISTS idx_anomalies_resolved ON anomalies(is_resolved)",
                 "CREATE INDEX IF NOT EXISTS idx_anomalies_detected ON anomalies(detected_at)",
 
-                // Create indexes for user preferences
+                // Indexes for user preferences
                 "CREATE INDEX IF NOT EXISTS idx_preferences_device ON user_preferences(device_id)",
                 "CREATE INDEX IF NOT EXISTS idx_preferences_key ON user_preferences(preference_key)"
         ));
 
-        // Create spatial index if PostGIS is enabled
+        // Add spatial index if PostGIS is enabled
         try {
             Integer postgisEnabled = jdbcTemplate.queryForObject(
                     "SELECT 1 FROM pg_extension WHERE extname = 'postgis'", Integer.class);
 
             if (postgisEnabled != null && postgisEnabled == 1) {
+                // Add spatial index for location-based queries
                 indexStatements.add(
                         "CREATE INDEX IF NOT EXISTS idx_stations_location ON stations USING GIST (" +
                                 "ST_SetSRID(ST_MakePoint(longitude, latitude), 4326)::geography)"
                 );
-                logger.info("Adding spatial index using PostGIS");
+                logger.info("PostGIS enabled, creating spatial index for geolocation queries");
+            } else {
+                logger.warn("PostGIS not enabled, skipping spatial index creation");
             }
         } catch (Exception e) {
-            logger.warn("Could not check for PostGIS extension, skipping spatial index: {}", e.getMessage());
+            logger.warn("Error checking PostGIS status, skipping spatial index: {}", e.getMessage());
         }
 
         // Execute each index statement
@@ -249,10 +253,19 @@ public class DatabaseMigration {
                 jdbcTemplate.execute(sql);
                 logger.info("Created index: {}", sql);
             } catch (Exception e) {
-                logger.warn("Error creating index: {}, Error: {}", sql, e.getMessage());
+                // Don't fail the migration for index creation errors
+                logger.warn("Error creating index: {} - Error: {}", sql, e.getMessage());
             }
         }
 
-        logger.info("Database index creation completed");
+        // Optionally analyze the database to update statistics
+        try {
+            jdbcTemplate.execute("ANALYZE");
+            logger.info("Database analyzed successfully to update statistics");
+        } catch (Exception e) {
+            logger.warn("Error analyzing database: {}", e.getMessage());
+        }
+
+        logger.info("Database indexing completed");
     }
 }

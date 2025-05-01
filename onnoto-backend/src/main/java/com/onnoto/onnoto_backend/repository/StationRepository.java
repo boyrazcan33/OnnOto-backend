@@ -1,31 +1,39 @@
 package com.onnoto.onnoto_backend.repository;
 
+import com.onnoto.onnoto_backend.model.Network;
+import com.onnoto.onnoto_backend.model.Operator;
 import com.onnoto.onnoto_backend.model.Station;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
 
 @Repository
 public interface StationRepository extends JpaRepository<Station, String> {
-    // Modified existing methods to support pagination
-    Page<Station> findByCity(String city, Pageable pageable);
+    List<Station> findByCity(String city);
 
-    Page<Station> findByNetwork_Id(String networkId, Pageable pageable);
+    List<Station> findByNetwork(Network network);
 
-    Page<Station> findByOperator_Id(String operatorId, Pageable pageable);
+    List<Station> findByOperator(Operator operator);
 
+    /**
+     * Find stations within a specified radius of a point
+     * Using geography type for accurate distance calculations
+     * The false parameter disables spheroid calculations for better performance
+     * This is appropriate for Estonia's size and typical EV search distances
+     */
     @Query(value = "SELECT s.* FROM stations s " +
-            "WHERE ST_DWithin(ST_SetSRID(ST_MakePoint(s.longitude, s.latitude), 4326)::geography, " +
-            "ST_SetSRID(ST_MakePoint(?1, ?2), 4326)::geography, ?3)",
-            countQuery = "SELECT COUNT(*) FROM stations s " +
-                    "WHERE ST_DWithin(ST_SetSRID(ST_MakePoint(s.longitude, s.latitude), 4326)::geography, " +
-                    "ST_SetSRID(ST_MakePoint(?1, ?2), 4326)::geography, ?3)",
+            "WHERE ST_DWithin(" +
+            "   ST_SetSRID(ST_MakePoint(s.longitude, s.latitude), 4326)::geography, " +
+            "   ST_SetSRID(ST_MakePoint(:longitude, :latitude), 4326)::geography, " +
+            "   :radius, false)",
             nativeQuery = true)
-    Page<Station> findNearbyStations(double longitude, double latitude, double radiusInMeters, Pageable pageable);
+    List<Station> findNearbyStations(
+            @Param("longitude") double longitude,
+            @Param("latitude") double latitude,
+            @Param("radius") double radiusInMeters);
 
     /**
      * Get average reliability scores grouped by network
