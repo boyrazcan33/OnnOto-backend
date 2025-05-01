@@ -12,6 +12,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import javax.sql.DataSource;
 import java.sql.Connection;
 import java.sql.Statement;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
@@ -152,10 +153,13 @@ public class DatabaseMigration {
                                 "    station_id VARCHAR(100) REFERENCES stations(id)," +
                                 "    anomaly_type VARCHAR(50) NOT NULL," +
                                 "    description TEXT," +
-                                "    severity DECIMAL(3, 2)," +
+                                "    severity VARCHAR(20)," +
+                                "    severity_score DECIMAL(5, 2)," +
                                 "    is_resolved BOOLEAN DEFAULT FALSE," +
                                 "    detected_at TIMESTAMP NOT NULL DEFAULT NOW()," +
-                                "    resolved_at TIMESTAMP" +
+                                "    resolved_at TIMESTAMP," +
+                                "    last_checked TIMESTAMP," +
+                                "    metadata TEXT" +
                                 ")"
                 );
 
@@ -170,11 +174,85 @@ public class DatabaseMigration {
                     }
                 }
 
+                // Create indexes after tables
+                createIndexes(jdbcTemplate);
+
                 logger.info("Database initialization completed successfully");
             } catch (Exception e) {
                 logger.error("Error initializing database: {}", e.getMessage(), e);
                 throw e;
             }
         };
+    }
+
+    /**
+     * Create database indexes for better performance
+     */
+    private void createIndexes(JdbcTemplate jdbcTemplate) {
+        logger.info("Creating database indexes...");
+
+        // List of SQL statements to create indexes
+        List<String> indexStatements = new ArrayList<>(Arrays.asList(
+                // Create indexes for common filters
+                "CREATE INDEX IF NOT EXISTS idx_stations_network ON stations(network_id)",
+                "CREATE INDEX IF NOT EXISTS idx_stations_operator ON stations(operator_id)",
+                "CREATE INDEX IF NOT EXISTS idx_stations_city ON stations(city)",
+                "CREATE INDEX IF NOT EXISTS idx_stations_reliability ON stations(reliability_score)",
+                "CREATE INDEX IF NOT EXISTS idx_stations_status_update ON stations(last_status_update)",
+
+                // Create indexes for connectors
+                "CREATE INDEX IF NOT EXISTS idx_connectors_station ON connectors(station_id)",
+                "CREATE INDEX IF NOT EXISTS idx_connectors_type ON connectors(connector_type)",
+                "CREATE INDEX IF NOT EXISTS idx_connectors_status ON connectors(status)",
+
+                // Create indexes for status history
+                "CREATE INDEX IF NOT EXISTS idx_status_history_station ON status_history(station_id)",
+                "CREATE INDEX IF NOT EXISTS idx_status_history_connector ON status_history(connector_id)",
+                "CREATE INDEX IF NOT EXISTS idx_status_history_date ON status_history(recorded_at)",
+
+                // Create indexes for reports
+                "CREATE INDEX IF NOT EXISTS idx_reports_station ON reports(station_id)",
+                "CREATE INDEX IF NOT EXISTS idx_reports_device ON reports(device_id)",
+                "CREATE INDEX IF NOT EXISTS idx_reports_date ON reports(created_at)",
+                "CREATE INDEX IF NOT EXISTS idx_reports_type ON reports(report_type)",
+
+                // Create indexes for anomalies
+                "CREATE INDEX IF NOT EXISTS idx_anomalies_station ON anomalies(station_id)",
+                "CREATE INDEX IF NOT EXISTS idx_anomalies_type ON anomalies(anomaly_type)",
+                "CREATE INDEX IF NOT EXISTS idx_anomalies_resolved ON anomalies(is_resolved)",
+                "CREATE INDEX IF NOT EXISTS idx_anomalies_detected ON anomalies(detected_at)",
+
+                // Create indexes for user preferences
+                "CREATE INDEX IF NOT EXISTS idx_preferences_device ON user_preferences(device_id)",
+                "CREATE INDEX IF NOT EXISTS idx_preferences_key ON user_preferences(preference_key)"
+        ));
+
+        // Create spatial index if PostGIS is enabled
+        try {
+            Integer postgisEnabled = jdbcTemplate.queryForObject(
+                    "SELECT 1 FROM pg_extension WHERE extname = 'postgis'", Integer.class);
+
+            if (postgisEnabled != null && postgisEnabled == 1) {
+                indexStatements.add(
+                        "CREATE INDEX IF NOT EXISTS idx_stations_location ON stations USING GIST (" +
+                                "ST_SetSRID(ST_MakePoint(longitude, latitude), 4326)::geography)"
+                );
+                logger.info("Adding spatial index using PostGIS");
+            }
+        } catch (Exception e) {
+            logger.warn("Could not check for PostGIS extension, skipping spatial index: {}", e.getMessage());
+        }
+
+        // Execute each index statement
+        for (String sql : indexStatements) {
+            try {
+                jdbcTemplate.execute(sql);
+                logger.info("Created index: {}", sql);
+            } catch (Exception e) {
+                logger.warn("Error creating index: {}, Error: {}", sql, e.getMessage());
+            }
+        }
+
+        logger.info("Database index creation completed");
     }
 }
