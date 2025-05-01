@@ -10,6 +10,21 @@ import java.time.LocalDateTime;
 @Entity
 @Table(name = "anomalies")
 public class Anomaly {
+
+    public enum AnomalyType {
+        STATUS_FLAPPING,       // Rapid status changes
+        EXTENDED_DOWNTIME,     // Unusually long offline periods
+        CONNECTOR_MISMATCH,    // Reported connector issues
+        PATTERN_DEVIATION,     // Unusual usage patterns
+        REPORT_SPIKE           // Sudden increase in user reports
+    }
+
+    public enum AnomalySeverity {
+        LOW,      // Informational, no immediate action needed
+        MEDIUM,   // Concerning, should be monitored
+        HIGH      // Critical, requires immediate attention
+    }
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -18,12 +33,18 @@ public class Anomaly {
     @JoinColumn(name = "station_id", nullable = false)
     private Station station;
 
+    @Enumerated(EnumType.STRING)
     @Column(name = "anomaly_type", nullable = false)
-    private String anomalyType;
+    private AnomalyType anomalyType;
 
     private String description;
 
-    private BigDecimal severity;
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private AnomalySeverity severity;
+
+    @Column(name = "severity_score")
+    private BigDecimal severityScore;
 
     @Column(name = "is_resolved")
     private Boolean isResolved = false;
@@ -33,4 +54,11 @@ public class Anomaly {
 
     @Column(name = "resolved_at")
     private LocalDateTime resolvedAt;
+
+    @Column(name = "last_checked")
+    private LocalDateTime lastChecked;
+
+    // Additional data stored as JSON
+    @Column(columnDefinition = "jsonb")
+    private String metadata;
 }

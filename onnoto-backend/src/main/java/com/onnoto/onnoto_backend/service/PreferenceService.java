@@ -6,6 +6,9 @@ import com.onnoto.onnoto_backend.model.UserPreference;
 import com.onnoto.onnoto_backend.repository.AnonymousUserRepository;
 import com.onnoto.onnoto_backend.repository.UserPreferenceRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -14,14 +17,22 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class PreferenceService {
     private final UserPreferenceRepository preferenceRepository;
     private final AnonymousUserRepository anonymousUserRepository;
 
+    /**
+     * Save a user preference
+     */
+    @CacheEvict(value = "preferences", key = "#request.deviceId")
     @Transactional
     public boolean savePreference(PreferenceRequest request) {
+        log.debug("Saving preference for device: {}, key: {}",
+                request.getDeviceId(), request.getPreferenceKey());
+
         Optional<AnonymousUser> user = anonymousUserRepository.findById(request.getDeviceId());
 
         if (user.isEmpty()) {
@@ -49,8 +60,14 @@ public class PreferenceService {
         return true;
     }
 
+    /**
+     * Get all preferences for a user
+     */
+    @Cacheable(value = "preferences", key = "#deviceId")
     @Transactional(readOnly = true)
     public Map<String, String> getUserPreferences(String deviceId) {
+        log.debug("Getting all preferences for device: {}", deviceId);
+
         Optional<AnonymousUser> user = anonymousUserRepository.findById(deviceId);
 
         if (user.isEmpty()) {
@@ -64,8 +81,14 @@ public class PreferenceService {
         return preferences;
     }
 
+    /**
+     * Get a specific preference for a user
+     */
+    @Cacheable(value = "preferences", key = "{#deviceId, #key}")
     @Transactional(readOnly = true)
     public Optional<String> getUserPreference(String deviceId, String key) {
+        log.debug("Getting preference for device: {}, key: {}", deviceId, key);
+
         Optional<AnonymousUser> user = anonymousUserRepository.findById(deviceId);
 
         if (user.isEmpty()) {
@@ -74,5 +97,14 @@ public class PreferenceService {
 
         return preferenceRepository.findByUserAndPreferenceKey(user.get(), key)
                 .map(UserPreference::getPreferenceValue);
+    }
+
+    /**
+     * Clear preference-related caches
+     */
+    @CacheEvict(value = "preferences", allEntries = true)
+    @Transactional
+    public void refreshPreferenceData() {
+        log.info("Refreshed preference data caches");
     }
 }

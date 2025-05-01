@@ -4,6 +4,8 @@ import com.onnoto.onnoto_backend.model.AnonymousUser;
 import com.onnoto.onnoto_backend.model.Report;
 import com.onnoto.onnoto_backend.model.Station;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.time.LocalDateTime;
@@ -23,5 +25,15 @@ public interface ReportRepository extends JpaRepository<Report, Long> {
             LocalDateTime endDate
     );
 
+
+
     long countByStationAndStatus(Station station, String status);
+    @Query("SELECT COUNT(r) FROM Report r WHERE r.station.id = :stationId " +
+            "AND r.createdAt BETWEEN :startDate AND :endDate")
+    long countByStationIdAndDateRange(
+            @Param("stationId") String stationId,
+            @Param("startDate") LocalDateTime startDate,
+            @Param("endDate") LocalDateTime endDate);
+    int countByStation(Station station);
+
 }

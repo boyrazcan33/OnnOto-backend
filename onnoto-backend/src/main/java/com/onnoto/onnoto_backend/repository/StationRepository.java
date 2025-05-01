@@ -22,4 +22,12 @@ public interface StationRepository extends JpaRepository<Station, String> {
             "ST_SetSRID(ST_MakePoint(?1, ?2), 4326)::geography, ?3)",
             nativeQuery = true)
     List<Station> findNearbyStations(double longitude, double latitude, double radiusInMeters);
+
+    /**
+     * Get average reliability scores grouped by network
+     */
+    @Query("SELECT s.network.id, s.network.name, AVG(s.reliabilityScore), COUNT(s) " +
+            "FROM Station s WHERE s.reliabilityScore IS NOT NULL " +
+            "GROUP BY s.network.id, s.network.name ORDER BY AVG(s.reliabilityScore) DESC")
+    List<Object[]> getAverageReliabilityByNetwork();
 }

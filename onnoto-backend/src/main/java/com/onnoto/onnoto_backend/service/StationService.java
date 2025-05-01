@@ -10,6 +10,9 @@ import com.onnoto.onnoto_backend.model.Station;
 import com.onnoto.onnoto_backend.repository.ConnectorRepository;
 import com.onnoto.onnoto_backend.repository.StationRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -17,6 +20,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class StationService {
@@ -24,21 +28,36 @@ public class StationService {
     private final ConnectorRepository connectorRepository;
     private final ReliabilityService reliabilityService;
 
+    /**
+     * Get all stations with basic information
+     */
+    @Cacheable(value = "stations")
     @Transactional(readOnly = true)
     public List<StationResponse> getAllStations() {
+        log.debug("Fetching all stations from database");
         return stationRepository.findAll().stream()
                 .map(this::convertToStationResponse)
                 .collect(Collectors.toList());
     }
 
+    /**
+     * Get detailed station information by ID
+     */
+    @Cacheable(value = "stationDetails", key = "#id")
     @Transactional(readOnly = true)
     public Optional<StationDetailResponse> getStationById(String id) {
+        log.debug("Fetching station details for ID: {}", id);
         return stationRepository.findById(id)
                 .map(this::convertToStationDetailResponse);
     }
 
+    /**
+     * Filter stations based on criteria
+     */
+    @Cacheable(value = "stations", key = "'filter-' + #request.hashCode()")
     @Transactional(readOnly = true)
     public List<StationResponse> filterStations(StationFilterRequest request) {
+        log.debug("Filtering stations with criteria: {}", request);
         // This would be implemented with a custom query
         // For now, we'll use a basic implementation
         List<Station> stations = stationRepository.findAll();
@@ -57,8 +76,15 @@ public class StationService {
                 .collect(Collectors.toList());
     }
 
+    /**
+     * Get stations near a location
+     */
+    @Cacheable(value = "nearbyStations", key = "{#request.latitude, #request.longitude, #request.radiusInMeters}")
     @Transactional(readOnly = true)
     public List<StationResponse> getNearbyStations(NearbyRequest request) {
+        log.debug("Finding stations near lat: {}, lon: {}, radius: {}m",
+                request.getLatitude(), request.getLongitude(), request.getRadiusInMeters());
+
         List<Station> stations = stationRepository.findNearbyStations(
                 request.getLongitude(),
                 request.getLatitude(),
@@ -74,6 +100,15 @@ public class StationService {
                 .limit(request.getLimit())
                 .map(this::convertToStationResponse)
                 .collect(Collectors.toList());
+    }
+
+    /**
+     * Clear station-related caches after data updates
+     */
+    @CacheEvict(value = {"stations", "stationDetails", "nearbyStations"}, allEntries = true)
+    @Transactional
+    public void refreshStationData() {
+        log.info("Refreshed station data caches");
     }
 
     private StationResponse convertToStationResponse(Station station) {
