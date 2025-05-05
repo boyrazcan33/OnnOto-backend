@@ -22,7 +22,6 @@ target/
 .env
 
 
->>>>>>> 5134ad8 (cors problem solved ,env added)
 
 ### NetBeans ###
 /nbproject/private/
