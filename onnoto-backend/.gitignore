@@ -18,8 +18,7 @@ target/
 *.iws
 *.iml
 *.ipr
-<<<<<<< HEAD
-=======
+
 .env
 
 
