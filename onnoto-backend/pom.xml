@@ -27,23 +27,18 @@
 		<url/>
 	</scm>
 	<properties>
-<<<<<<< HEAD
-		<java.version>17</java.version>
-=======
+
 		<java.version>21</java.version>
->>>>>>> 5134ad8 (cors problem solved ,env added)
 		<org.mapstruct.version>1.5.5.Final</org.mapstruct.version>
 	</properties>
 	<dependencies>
 		<dependency>
-<<<<<<< HEAD
-=======
+
 			<groupId>me.paulschwarz</groupId>
 			<artifactId>spring-dotenv</artifactId>
 			<version>2.5.4</version>
 		</dependency>
 		<dependency>
->>>>>>> 5134ad8 (cors problem solved ,env added)
 			<groupId>org.springdoc</groupId>
 			<artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
 			<version>2.4.0</version>
@@ -95,11 +90,6 @@
 			<artifactId>flyway-database-postgresql</artifactId>
 		</dependency>
 
-		<dependency>
-			<groupId>org.postgresql</groupId>
-			<artifactId>postgresql</artifactId>
-			<scope>runtime</scope>
-		</dependency>
 		<dependency>
 			<groupId>org.projectlombok</groupId>
 			<artifactId>lombok</artifactId>

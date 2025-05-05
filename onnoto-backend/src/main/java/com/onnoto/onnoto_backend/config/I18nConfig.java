@@ -13,11 +13,8 @@ import java.util.Locale;
 @Configuration
 public class I18nConfig {
 
-<<<<<<< HEAD
-    @Bean
-=======
+
     @Bean(name = "customLocaleResolver")
->>>>>>> 5134ad8 (cors problem solved ,env added)
     public LocaleResolver localeResolver() {
         AcceptHeaderLocaleResolver resolver = new AcceptHeaderLocaleResolver();
         resolver.setSupportedLocales(Arrays.asList(

@@ -19,11 +19,7 @@ import java.util.Arrays;
 public class SecurityConfig {
 
     private final DeviceIdAuthFilter deviceIdAuthFilter;
-<<<<<<< HEAD
 
-    public SecurityConfig(DeviceIdAuthFilter deviceIdAuthFilter) {
-        this.deviceIdAuthFilter = deviceIdAuthFilter;
-=======
     private final CorsConfigurationSource corsConfigurationSource; // Inject the bean
 
 
@@ -31,19 +27,14 @@ public class SecurityConfig {
                           CorsConfigurationSource corsConfigurationSource) {
         this.deviceIdAuthFilter = deviceIdAuthFilter;
         this.corsConfigurationSource = corsConfigurationSource;
->>>>>>> 5134ad8 (cors problem solved ,env added)
     }
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
                 .csrf(csrf -> csrf.disable())
-<<<<<<< HEAD
-                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
-                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-=======
+
                 .cors(cors -> cors.configurationSource(corsConfigurationSource))                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
->>>>>>> 5134ad8 (cors problem solved ,env added)
                 .authorizeHttpRequests(auth -> auth
                         // Public endpoints - allow read-only access
                         .requestMatchers(HttpMethod.GET, "/api/stations/**").permitAll()
@@ -72,24 +63,5 @@ public class SecurityConfig {
         return http.build();
     }
 
-<<<<<<< HEAD
-    @Bean
-    public CorsConfigurationSource corsConfigurationSource() {
-        CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(Arrays.asList(
-                "https://onnoto.ee",
-                "https://www.onnoto.ee"
-        ));
-        configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
-        configuration.setAllowedHeaders(Arrays.asList("Authorization", "Content-Type", "X-Device-ID"));
-        configuration.setExposedHeaders(Arrays.asList("X-Device-ID"));
-        configuration.setAllowCredentials(true);
-        configuration.setMaxAge(3600L);
 
-        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
-        source.registerCorsConfiguration("/**", configuration);
-        return source;
-    }
-=======
->>>>>>> 5134ad8 (cors problem solved ,env added)
 }
