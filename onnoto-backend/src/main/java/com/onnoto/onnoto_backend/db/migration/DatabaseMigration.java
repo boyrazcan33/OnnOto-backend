@@ -160,7 +160,10 @@ public class DatabaseMigration {
                                 "    resolved_at TIMESTAMP," +
                                 "    last_checked TIMESTAMP," +
                                 "    metadata TEXT" +
-                                ")"
+                                ")",
+                        "ALTER TABLE anonymous_users " +
+                                "ADD COLUMN IF NOT EXISTS is_blocked BOOLEAN NOT NULL DEFAULT FALSE"
+
                 );
 
                 // Execute each SQL statement for creating tables

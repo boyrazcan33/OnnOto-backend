@@ -53,11 +53,24 @@ public class AnonymousUserService {
             newUser.setFirstSeen(LocalDateTime.now());
             newUser.setLastSeen(LocalDateTime.now());
             newUser.setLanguagePreference(languagePreference != null ? languagePreference : "et");
+            newUser.setIsBlocked(false);
 
             anonymousUserRepository.save(newUser);
             log.info("Created new anonymous user with device ID: {}", deviceId);
             return deviceId;
         }
+    }
+
+    /**
+     * Block a device ID
+     */
+    @Transactional
+    public void blockDeviceId(String deviceId) {
+        log.info("Blocking device ID: {}", deviceId);
+        anonymousUserRepository.findById(deviceId).ifPresent(user -> {
+            user.setIsBlocked(true);
+            anonymousUserRepository.save(user);
+        });
     }
 
     /**

@@ -17,10 +17,10 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 import java.time.LocalDateTime;
-import java.time.temporal.ChronoUnit;
 import java.util.Collections;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.regex.Pattern;
 
 @Slf4j
 @Component
@@ -32,7 +32,7 @@ public class DeviceIdAuthFilter extends OncePerRequestFilter {
 
     private static final String DEVICE_ID_HEADER = "X-Device-ID";
     private static final String ACCEPT_LANGUAGE_HEADER = "Accept-Language";
-    private static final long SESSION_EXPIRY_HOURS = 24; // 24 hours
+    private static final Pattern UUID_PATTERN = Pattern.compile("^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$");
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
@@ -42,6 +42,12 @@ public class DeviceIdAuthFilter extends OncePerRequestFilter {
         String deviceId = request.getHeader(DEVICE_ID_HEADER);
         String acceptLanguage = request.getHeader(ACCEPT_LANGUAGE_HEADER);
         String languagePreference = null;
+
+        // Validate device ID format if present
+        if (deviceId != null && !deviceId.isEmpty() && !UUID_PATTERN.matcher(deviceId).matches()) {
+            log.warn("Invalid device ID format detected from IP {}: {}", request.getRemoteAddr(), deviceId);
+            deviceId = null; // Force generation of new ID
+        }
 
         // Simple language detection from Accept-Language header
         if (acceptLanguage != null) {
@@ -60,26 +66,26 @@ public class DeviceIdAuthFilter extends OncePerRequestFilter {
             log.debug("Generated new device ID: {}", deviceId);
         }
 
-        // Check if session is expired
-        boolean sessionExpired = false;
+        // Check if user exists and is active
         Optional<AnonymousUser> existingUser = anonymousUserRepository.findById(deviceId);
+        boolean createNewId = false;
 
         if (existingUser.isPresent()) {
             AnonymousUser user = existingUser.get();
-            LocalDateTime lastSeen = user.getLastSeen();
-            LocalDateTime now = LocalDateTime.now();
 
-            long hoursSinceLastSeen = ChronoUnit.HOURS.between(lastSeen, now);
-            if (hoursSinceLastSeen > SESSION_EXPIRY_HOURS) {
-                log.debug("Session expired for device ID: {}", deviceId);
-                sessionExpired = true;
-                // Generate new device ID for expired session
+            // Check if the device ID is blocked
+            if (user.getIsBlocked() != null && user.getIsBlocked()) {
+                log.warn("Blocked device ID attempted access: {}", deviceId);
                 deviceId = UUID.randomUUID().toString();
+                createNewId = true;
             }
         }
 
+        // Create new ID if needed
+        final String updatedDeviceId = createNewId ? deviceId : deviceId;
+
         // Register or update the user
-        final String updatedDeviceId = anonymousUserService.registerOrUpdateUser(deviceId, languagePreference);
+        anonymousUserService.registerOrUpdateUser(updatedDeviceId, languagePreference);
 
         // Set authentication in Spring Security context if not already set
         if (SecurityContextHolder.getContext().getAuthentication() == null) {
