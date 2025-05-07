@@ -5,19 +5,32 @@ services:
     image: postgis/postgis:15-3.3
     environment:
       POSTGRES_DB: onnoto
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: GRES3030
+      POSTGRES_USER: ${ONNOTO_DB_USERNAME}
+      POSTGRES_PASSWORD: ${ONNOTO_DB_PASSWORD}
     ports:
       - "5434:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${ONNOTO_DB_USERNAME} -d onnoto"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
 
   redis:
     image: redis:alpine
+    command: redis-server --requirepass ${ONNOTO_REDIS_PASSWORD}
     ports:
       - "6379:6379"
     volumes:
       - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${ONNOTO_REDIS_PASSWORD}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
 
   backend:
     build: ./onnoto-backend
@@ -25,12 +38,20 @@ services:
       - postgres
       - redis
     environment:
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/onnoto
-      SPRING_DATASOURCE_USERNAME: postgres
-      SPRING_DATASOURCE_PASSWORD: GRES3030
-      SPRING_REDIS_HOST: redis
+      ONNOTO_DB_URL: jdbc:postgresql://postgres:5432/onnoto
+      ONNOTO_DB_USERNAME: ${ONNOTO_DB_USERNAME}
+      ONNOTO_DB_PASSWORD: ${ONNOTO_DB_PASSWORD}
+      ONNOTO_REDIS_HOST: ${ONNOTO_REDIS_HOST}
+      ONNOTO_REDIS_PORT: ${ONNOTO_REDIS_PORT}
+      ONNOTO_REDIS_PASSWORD: ${ONNOTO_REDIS_PASSWORD}
     ports:
       - "8080:8080"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
 
 volumes:
   postgres_data:

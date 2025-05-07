@@ -1,0 +1,33 @@
+# Environment variables
+.env
+.env.*
+
+# Docker volumes
+volumes/
+**/postgres_data/
+**/redis_data/
+
+# Logs
+logs/
+*.log
+
+# Build artifacts
+target/
+build/
+dist/
+
+# IDE specific files
+.idea/
+.vscode/
+*.iml
+*.iws
+*.ipr
+
+# OS specific files
+.DS_Store
+Thumbs.db
+
+# Application specific
+application-local.properties
+application-dev.properties
+application-prod.properties
