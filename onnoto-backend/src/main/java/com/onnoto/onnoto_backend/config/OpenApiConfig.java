@@ -22,12 +22,12 @@ public class OpenApiConfig {
                         .version("v1.0.0")
                         .contact(new Contact()
                                 .name("OnnOto Support")
-                                .email("support@onnoto.ee"))
+                                .email("support@onnoto.com"))
                         .license(new License()
                                 .name("Proprietary")))
                 .servers(List.of(
-                        new Server().url("http://localhost:8080").description("Development Server"),
-                        new Server().url("https://api.onnoto.ee").description("Production Server")
+                        new Server().url("http://localhost:8087").description("Development Server"),
+                        new Server().url("https://api.onnoto.com").description("Production Server")
                 ));
     }
 }
