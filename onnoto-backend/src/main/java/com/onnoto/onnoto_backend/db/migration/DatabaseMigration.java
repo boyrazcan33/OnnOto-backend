@@ -240,7 +240,7 @@ public class DatabaseMigration {
                 // Add spatial index for location-based queries
                 indexStatements.add(
                         "CREATE INDEX IF NOT EXISTS idx_stations_location ON stations USING GIST (" +
-                                "ST_SetSRID(ST_MakePoint(longitude, latitude), 4326)::geography)"
+                                "ST_SetSRID(ST_MakePoint(longitude, latitude), 4326))"
                 );
                 logger.info("PostGIS enabled, creating spatial index for geolocation queries");
             } else {

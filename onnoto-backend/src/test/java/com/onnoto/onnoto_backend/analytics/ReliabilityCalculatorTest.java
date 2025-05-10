@@ -20,6 +20,7 @@ import java.util.Optional;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -97,8 +98,10 @@ public class ReliabilityCalculatorTest {
         calculator.calculateAllStationReliability();
 
         // Then
-        verify(stationRepository).save(any(Station.class));
-        verify(reliabilityMetricRepository).save(any());
+        // Changed from verify(stationRepository).save(any(Station.class))
+        // to verify correct number of calls (one for each station)
+        verify(stationRepository, times(2)).save(any(Station.class));
+        verify(reliabilityMetricRepository, times(2)).save(any());
     }
 
     private StatusHistoryRepository.StatusCountDto createStatusCountDto(String status, int count) {
