@@ -39,7 +39,7 @@ public class ConnectorService {
     /**
      * Get a specific connector by ID
      */
-    @Cacheable(value = "connectors", key = "'id-' + #id")
+    @Cacheable(value = "connectors", key = "'id-' + #id", unless = "#result == null")
     @Transactional(readOnly = true)
     public Optional<ConnectorResponse> getConnectorById(Long id) {
         log.debug("Fetching connector with ID: {}", id);

@@ -14,12 +14,11 @@ import com.onnoto.onnoto_backend.service.StationService;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
-import org.mockito.MockitoAnnotations;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.cache.CacheManager;
+import org.springframework.cache.annotation.EnableCaching;
+import org.springframework.context.annotation.Import;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.containers.GenericContainer;
@@ -36,10 +35,11 @@ import java.util.Objects;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.Mockito.*;
 
 @SpringBootTest
 @Testcontainers
+@EnableCaching
+@Import(RedisConfig.class)
 public class RedisCacheIntegrationTest {
 
     @Container
@@ -89,7 +89,6 @@ public class RedisCacheIntegrationTest {
     private ConnectorRepository connectorRepository;
 
     private Station testStation;
-    private StationRepository originalRepository;
 
     @BeforeEach
     void setUp() {
@@ -142,26 +141,32 @@ public class RedisCacheIntegrationTest {
 
     @Test
     void testStationsCaching() {
-        // Create a spy of the repository to track calls
-        StationRepository spyRepository = spy(stationRepository);
-
         // First call - should hit the database
         List<StationResponse> firstResult = stationService.getAllStations();
 
         // Verify first call
         assertNotNull(firstResult);
         assertFalse(firstResult.isEmpty());
+        assertEquals("test_station_001", firstResult.get(0).getId());
+
+        // Add a new station that shouldn't be in the cached result
+        Station newStation = new Station();
+        newStation.setId("test_station_002");
+        newStation.setName("Another Test Station");
+        newStation.setLatitude(new BigDecimal("59.4372"));
+        newStation.setLongitude(new BigDecimal("24.7539"));
+        newStation.setCity("Tallinn");
+        newStation.setCreatedAt(LocalDateTime.now());
+        newStation.setUpdatedAt(LocalDateTime.now());
+        stationRepository.save(newStation);
 
         // Second call - should use cache
         List<StationResponse> secondResult = stationService.getAllStations();
 
-        // Verify second call
+        // Verify second call - still has only one station from cache
         assertNotNull(secondResult);
-        assertEquals(firstResult.size(), secondResult.size());
-
-        // We can't easily verify cache hits with this approach,
-        // so just verify the data consistency
-        assertEquals(firstResult.get(0).getId(), secondResult.get(0).getId());
+        assertEquals(1, secondResult.size());
+        assertEquals("test_station_001", secondResult.get(0).getId());
     }
 
     @Test
@@ -173,15 +178,16 @@ public class RedisCacheIntegrationTest {
         assertTrue(firstResult.isPresent());
         assertEquals("test_station_001", firstResult.get().getId());
 
+        // Modify station name
+        testStation.setName("Updated Station Name");
+        stationRepository.save(testStation);
+
         // Second call - should use cache
         Optional<StationDetailResponse> secondResult = stationService.getStationById("test_station_001");
 
-        // Verify second call
+        // Verify second call - still has old name from cache
         assertTrue(secondResult.isPresent());
-
-        // Verify data consistency, indicating cache is working
-        assertEquals(firstResult.get().getId(), secondResult.get().getId());
-        assertEquals(firstResult.get().getName(), secondResult.get().getName());
+        assertEquals("Test Station", secondResult.get().getName());
     }
 
     @Test
@@ -189,15 +195,21 @@ public class RedisCacheIntegrationTest {
         // First call - should hit the database and cache the result
         List<StationResponse> firstResult = stationService.getAllStations();
         assertNotNull(firstResult);
+        assertEquals(1, firstResult.size());
+        assertEquals("Test Station", firstResult.get(0).getName());
+
+        // Modify the database
+        testStation.setName("Updated Station Name");
+        stationRepository.save(testStation);
+
+        // Second call - should use cached data (old name)
+        List<StationResponse> cachedResult = stationService.getAllStations();
+        assertEquals("Test Station", cachedResult.get(0).getName());
 
         // Cache eviction
         stationService.refreshStationData();
 
-        // Modify the database to detect changes
-        testStation.setName("Updated Station Name");
-        stationRepository.save(testStation);
-
-        // Second call after eviction - should hit the database again
+        // Third call after eviction - should hit the database again
         List<StationResponse> secondResult = stationService.getAllStations();
 
         // Verify we got updated data (cache was evicted)

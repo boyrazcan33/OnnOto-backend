@@ -43,7 +43,7 @@ public class StationService {
     /**
      * Get detailed station information by ID
      */
-    @Cacheable(value = "stationDetails", key = "#id")
+    @Cacheable(value = "stationDetails", key = "#id", unless = "#result == null")
     @Transactional(readOnly = true)
     public Optional<StationDetailResponse> getStationById(String id) {
         log.debug("Fetching station details for ID: {}", id);

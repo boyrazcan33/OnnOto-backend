@@ -1,7 +1,10 @@
 package com.onnoto.onnoto_backend.model;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import jakarta.persistence.*;
 import lombok.Data;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -60,5 +63,6 @@ public class Anomaly {
 
     // Additional data stored as JSON
     @Column(columnDefinition = "jsonb")
-    private String metadata;
+    @JdbcTypeCode(SqlTypes.JSON)
+    private JsonNode metadata;
 }

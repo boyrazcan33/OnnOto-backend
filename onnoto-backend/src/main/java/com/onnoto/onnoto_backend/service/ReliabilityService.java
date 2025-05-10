@@ -26,7 +26,7 @@ public class ReliabilityService {
     /**
      * Get reliability metrics for a specific station
      */
-    @Cacheable(value = "reliability", key = "#stationId")
+    @Cacheable(value = "reliability", key = "#stationId", unless = "#result == null")
     @Transactional(readOnly = true)
     public Optional<ReliabilityResponse> getStationReliability(String stationId) {
         log.debug("Fetching reliability metrics for station: {}", stationId);

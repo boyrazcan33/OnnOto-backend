@@ -47,15 +47,20 @@ public class RedisConfig {
     }
 
     @Bean
-    public RedisCacheManager cacheManager(RedisConnectionFactory connectionFactory) {
+    public ObjectMapper redisObjectMapper() {
         // Configure ObjectMapper to handle Java 8 date/time types
         ObjectMapper objectMapper = new ObjectMapper();
         objectMapper.registerModule(new JavaTimeModule());
         objectMapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+        objectMapper.enableDefaultTyping(ObjectMapper.DefaultTyping.NON_FINAL);
+        return objectMapper;
+    }
 
+    @Bean
+    public RedisCacheManager cacheManager(RedisConnectionFactory connectionFactory) {
         // Create a serializer that can handle Java 8 date/time types
         GenericJackson2JsonRedisSerializer jsonSerializer =
-                new GenericJackson2JsonRedisSerializer(objectMapper);
+                new GenericJackson2JsonRedisSerializer(redisObjectMapper());
 
         // Default cache configuration
         RedisCacheConfiguration defaultConfig = RedisCacheConfiguration.defaultCacheConfig()
@@ -63,8 +68,7 @@ public class RedisConfig {
                 .serializeKeysWith(RedisSerializationContext.SerializationPair
                         .fromSerializer(new StringRedisSerializer()))
                 .serializeValuesWith(RedisSerializationContext.SerializationPair
-                        .fromSerializer(jsonSerializer))
-                .disableCachingNullValues();
+                        .fromSerializer(jsonSerializer));
 
         // Configure specific TTLs for different caches
         Map<String, RedisCacheConfiguration> cacheConfigurations = new HashMap<>();
