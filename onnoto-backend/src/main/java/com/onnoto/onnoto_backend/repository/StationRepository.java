@@ -26,8 +26,8 @@ public interface StationRepository extends JpaRepository<Station, String> {
      */
     @Query(value = "SELECT s.* FROM stations s " +
             "WHERE ST_DWithin(" +
-            "   ST_SetSRID(ST_MakePoint(s.longitude, s.latitude), 4326)::geography, " +
-            "   ST_SetSRID(ST_MakePoint(:longitude, :latitude), 4326)::geography, " +
+            "   ST_SetSRID(ST_MakePoint(s.longitude, s.latitude), 4326), " +
+            "   ST_SetSRID(ST_MakePoint(:longitude, :latitude), 4326), " +
             "   :radius, false)",
             nativeQuery = true)
     List<Station> findNearbyStations(
