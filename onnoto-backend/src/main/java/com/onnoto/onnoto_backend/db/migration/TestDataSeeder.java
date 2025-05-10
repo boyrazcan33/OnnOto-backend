@@ -10,6 +10,8 @@ import org.springframework.core.annotation.Order;
 import org.springframework.jdbc.core.JdbcTemplate;
 
 import javax.sql.DataSource;
+import java.time.LocalDateTime;
+import java.sql.Timestamp;
 
 @Configuration
 public class TestDataSeeder {
@@ -39,65 +41,69 @@ public class TestDataSeeder {
 
             try {
                 logger.info("Seeding test data...");
-                // Insert networks
+
+                // Get current timestamp for created_at and updated_at fields
+                Timestamp now = Timestamp.valueOf(LocalDateTime.now());
+
+                // Insert networks - Including created_at and updated_at fields
                 jdbcTemplate.update(
-                        "INSERT INTO networks (id, name, website) VALUES (?, ?, ?)",
-                        "elmo", "ELMO Charging Network", "https://elmo.ee"
+                        "INSERT INTO networks (id, name, website, created_at, updated_at) VALUES (?, ?, ?, ?, ?)",
+                        "elmo", "ELMO Charging Network", "https://elmo.ee", now, now
                 );
 
                 jdbcTemplate.update(
-                        "INSERT INTO networks (id, name, website) VALUES (?, ?, ?)",
-                        "eleport", "Eleport", "https://eleport.ee"
+                        "INSERT INTO networks (id, name, website, created_at, updated_at) VALUES (?, ?, ?, ?, ?)",
+                        "eleport", "Eleport", "https://eleport.ee", now, now
                 );
 
                 jdbcTemplate.update(
-                        "INSERT INTO networks (id, name, website) VALUES (?, ?, ?)",
-                        "virta", "Virta Network", "https://virta.ee"
+                        "INSERT INTO networks (id, name, website, created_at, updated_at) VALUES (?, ?, ?, ?, ?)",
+                        "virta", "Virta Network", "https://virta.ee", now, now
                 );
 
-                // Insert operators
+                // Insert operators - Including created_at and updated_at fields
                 jdbcTemplate.update(
-                        "INSERT INTO operators (id, name, contact_info) VALUES (?, ?, ?)",
-                        "enefit", "Enefit", "info@enefit.ee"
+                        "INSERT INTO operators (id, name, contact_info, created_at, updated_at) VALUES (?, ?, ?, ?, ?)",
+                        "enefit", "Enefit", "info@enefit.ee", now, now
                 );
 
                 jdbcTemplate.update(
-                        "INSERT INTO operators (id, name, contact_info) VALUES (?, ?, ?)",
-                        "eleport", "Eleport", "info@eleport.ee"
+                        "INSERT INTO operators (id, name, contact_info, created_at, updated_at) VALUES (?, ?, ?, ?, ?)",
+                        "eleport", "Eleport", "info@eleport.ee", now, now
                 );
 
-                // Insert stations
+                // Insert stations - Including created_at and updated_at fields
                 jdbcTemplate.update(
-                        "INSERT INTO stations (id, name, operator_id, network_id, latitude, longitude, address, city, postal_code, country) " +
-                                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                        "INSERT INTO stations (id, name, operator_id, network_id, latitude, longitude, address, city, postal_code, country, created_at, updated_at) " +
+                                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                         "elmo_001", "Tallinn Viru Keskus", "enefit", "elmo",
-                        59.4372, 24.7539, "Viru väljak 4", "Tallinn", "10111", "EE"
+                        59.4372, 24.7539, "Viru väljak 4", "Tallinn", "10111", "EE", now, now
                 );
 
                 jdbcTemplate.update(
-                        "INSERT INTO stations (id, name, operator_id, network_id, latitude, longitude, address, city, postal_code, country) " +
-                                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                        "INSERT INTO stations (id, name, operator_id, network_id, latitude, longitude, address, city, postal_code, country, created_at, updated_at) " +
+                                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                         "eleport_001", "Ülemiste Keskus", "eleport", "eleport",
-                        59.4229, 24.7991, "Suur-Sõjamäe 4", "Tallinn", "11415", "EE"
+                        59.4229, 24.7991, "Suur-Sõjamäe 4", "Tallinn", "11415", "EE", now, now
                 );
 
-                // Insert connectors
+                // Insert connectors - Including created_at and updated_at fields
                 jdbcTemplate.update(
-                        "INSERT INTO connectors (station_id, connector_type, power_kw, current_type, status) " +
-                                "VALUES (?, ?, ?, ?, ?)",
-                        "elmo_001", "CCS", 50.0, "DC", "AVAILABLE"
-                );
-
-                jdbcTemplate.update(
-                        "INSERT INTO connectors (station_id, connector_type, power_kw, current_type, status) " +
-                                "VALUES (?, ?, ?, ?, ?)",
-                        "elmo_001", "CHAdeMO", 50.0, "DC", "AVAILABLE"
+                        "INSERT INTO connectors (station_id, connector_type, power_kw, current_type, status, created_at, updated_at) " +
+                                "VALUES (?, ?, ?, ?, ?, ?, ?)",
+                        "elmo_001", "CCS", 50.0, "DC", "AVAILABLE", now, now
                 );
 
                 jdbcTemplate.update(
-                        "INSERT INTO connectors (station_id, connector_type, power_kw, current_type, status) " +
-                                "VALUES (?, ?, ?, ?, ?)",
-                        "eleport_001", "Type 2", 22.0, "AC", "AVAILABLE"
+                        "INSERT INTO connectors (station_id, connector_type, power_kw, current_type, status, created_at, updated_at) " +
+                                "VALUES (?, ?, ?, ?, ?, ?, ?)",
+                        "elmo_001", "CHAdeMO", 50.0, "DC", "AVAILABLE", now, now
+                );
+
+                jdbcTemplate.update(
+                        "INSERT INTO connectors (station_id, connector_type, power_kw, current_type, status, created_at, updated_at) " +
+                                "VALUES (?, ?, ?, ?, ?, ?, ?)",
+                        "eleport_001", "Type 2", 22.0, "AC", "AVAILABLE", now, now
                 );
 
                 logger.info("Test data seeded successfully");
