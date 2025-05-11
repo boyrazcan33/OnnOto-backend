@@ -33,23 +33,38 @@ public class RedisConfig {
     @Value("${spring.redis.port:6379}")
     private int redisPort;
 
+    @Value("${spring.redis.username:default}")
+    private String redisUsername;
+
     @Value("${spring.redis.password:}")
     private String redisPassword;
+
+    @Value("${spring.redis.apikey:}")
+    private String redisApiKey;
 
     @Bean
     public RedisConnectionFactory redisConnectionFactory() {
         try {
-            log.info("Configuring Redis connection to {}:{}", redisHost, redisPort);
+            log.info("Configuring Redis Cloud connection to {}:{}", redisHost, redisPort);
             RedisStandaloneConfiguration config = new RedisStandaloneConfiguration();
             config.setHostName(redisHost);
             config.setPort(redisPort);
 
-            if (redisPassword != null && !redisPassword.isEmpty()) {
+            // Set username
+            config.setUsername(redisUsername);
+
+            // Set password and API key
+            if (redisApiKey != null && !redisApiKey.isEmpty()) {
+                // If API key is provided, use it for authentication
+                config.setPassword(redisApiKey);
+                log.info("Using Redis Cloud API key for authentication");
+            } else if (redisPassword != null && !redisPassword.isEmpty()) {
+                // Otherwise use password
                 config.setPassword(redisPassword);
-                log.debug("Redis password configured");
+                log.info("Using Redis Cloud password for authentication");
             }
 
-            // Configure SSL for Redis Cloud connection
+            // Enable SSL for Redis Cloud
             LettuceClientConfiguration clientConfig = LettuceClientConfiguration.builder()
                     .useSsl()
                     .build();
