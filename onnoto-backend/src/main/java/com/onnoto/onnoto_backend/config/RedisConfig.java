@@ -42,16 +42,22 @@ public class RedisConfig {
     @Value("${spring.redis.apikey:}")
     private String redisApiKey;
 
+    @Value("${spring.redis.ssl:true}")
+    private boolean redisSsl;
+
     @Bean
     public RedisConnectionFactory redisConnectionFactory() {
         try {
-            log.info("Configuring Redis Cloud connection to {}:{}", redisHost, redisPort);
+            log.info("Configuring Redis Cloud connection to {}:{} with SSL={}", redisHost, redisPort, redisSsl);
             RedisStandaloneConfiguration config = new RedisStandaloneConfiguration();
             config.setHostName(redisHost);
             config.setPort(redisPort);
 
             // Set username
-            config.setUsername(redisUsername);
+            if (redisUsername != null && !redisUsername.isEmpty() && !"default".equals(redisUsername)) {
+                config.setUsername(redisUsername);
+                log.info("Using Redis username: {}", redisUsername);
+            }
 
             // Set password and API key
             if (redisApiKey != null && !redisApiKey.isEmpty()) {
@@ -64,10 +70,18 @@ public class RedisConfig {
                 log.info("Using Redis Cloud password for authentication");
             }
 
-            // Enable SSL for Redis Cloud
-            LettuceClientConfiguration clientConfig = LettuceClientConfiguration.builder()
-                    .useSsl()
-                    .build();
+            // Configure SSL based on property
+            LettuceClientConfiguration clientConfig;
+            if (redisSsl) {
+                clientConfig = LettuceClientConfiguration.builder()
+                        .useSsl()
+                        .build();
+                log.info("Redis SSL enabled");
+            } else {
+                clientConfig = LettuceClientConfiguration.builder()
+                        .build();
+                log.info("Redis SSL disabled");
+            }
 
             return new LettuceConnectionFactory(config, clientConfig);
         } catch (Exception e) {

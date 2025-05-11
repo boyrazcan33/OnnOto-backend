@@ -64,6 +64,7 @@ public class RedisCacheIntegrationTest {
         // Redis properties
         registry.add("spring.redis.host", redis::getHost);
         registry.add("spring.redis.port", redis::getFirstMappedPort);
+        registry.add("spring.redis.ssl", () -> false);
 
         // Other configuration
         registry.add("spring.jpa.hibernate.ddl-auto", () -> "create-drop");
