@@ -22,8 +22,8 @@ public class AnonymousUserService {
     /**
      * Register a new user or update an existing one
      */
-    @CacheEvict(value = "users", key = "#deviceId")
     @Transactional
+    @CacheEvict(value = "users", key = "#deviceId")
     public String registerOrUpdateUser(String deviceId, String languagePreference) {
         log.debug("Registering/updating user with device ID: {}", deviceId);
 

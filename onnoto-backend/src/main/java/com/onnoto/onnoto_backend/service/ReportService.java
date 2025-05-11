@@ -28,8 +28,8 @@ public class ReportService {
     /**
      * Create a new station report
      */
-    @CacheEvict(value = {"stations", "stationDetails", "reliability"}, allEntries = true)
     @Transactional
+    @CacheEvict(value = {"stations", "stationDetails", "reliability"}, allEntries = true)
     public Optional<Long> createReport(ReportRequest request) {
         log.info("Creating report for station: {} from device: {}",
                 request.getStationId(), request.getDeviceId());

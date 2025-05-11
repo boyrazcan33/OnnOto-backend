@@ -27,8 +27,8 @@ public class PreferenceService {
     /**
      * Save a user preference
      */
-    @CacheEvict(value = "preferences", key = "#request.deviceId")
     @Transactional
+    @CacheEvict(value = "preferences", key = "#request.deviceId")
     public boolean savePreference(PreferenceRequest request) {
         log.debug("Saving preference for device: {}, key: {}",
                 request.getDeviceId(), request.getPreferenceKey());

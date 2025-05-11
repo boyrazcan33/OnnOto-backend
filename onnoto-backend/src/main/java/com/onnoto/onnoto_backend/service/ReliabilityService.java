@@ -63,8 +63,8 @@ public class ReliabilityService {
     /**
      * Clear reliability-related caches after recalculations
      */
-    @CacheEvict(value = "reliability", allEntries = true)
     @Transactional
+    @CacheEvict(value = "reliability", allEntries = true)
     public void refreshReliabilityData() {
         log.info("Refreshed reliability data caches");
     }

@@ -62,8 +62,8 @@ public class ConnectorService {
     /**
      * Clear connector-related caches after data updates
      */
-    @CacheEvict(value = "connectors", allEntries = true)
     @Transactional
+    @CacheEvict(value = "connectors", allEntries = true)
     public void refreshConnectorData() {
         log.info("Refreshed connector data caches");
     }
