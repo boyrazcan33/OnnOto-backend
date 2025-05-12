@@ -127,12 +127,37 @@ public class ElmoNetworkProvider extends BaseDataProvider {
             // For now, we'll update with random statuses
 
             // Get all connectors for ELMO stations
-            List<Station> stations = stationRepository.findByNetwork(
-                    networkRepository.findById("elmo").orElseThrow());
+            Optional<Network> networkOptional = networkRepository.findById("elmo");
+
+            // FIX: Handle the case where the network doesn't exist
+            if (!networkOptional.isPresent()) {
+                log.warn("Network 'elmo' not found in database. Creating it first.");
+                ensureNetwork();
+                networkOptional = networkRepository.findById("elmo");
+
+                // If still not present, log and return
+                if (!networkOptional.isPresent()) {
+                    log.error("Failed to create 'elmo' network. Cannot update statuses.");
+                    return;
+                }
+            }
+
+            Network network = networkOptional.get();
+            List<Station> stations = stationRepository.findByNetwork(network);
+
+            if (stations.isEmpty()) {
+                log.warn("No stations found for ELMO network. Nothing to update.");
+                return;
+            }
 
             Random random = new Random();
             for (Station station : stations) {
                 List<Connector> connectors = connectorRepository.findByStation(station);
+
+                if (connectors.isEmpty()) {
+                    log.debug("No connectors found for station: {}. Skipping.", station.getId());
+                    continue;
+                }
 
                 for (Connector connector : connectors) {
                     // Randomly assign statuses

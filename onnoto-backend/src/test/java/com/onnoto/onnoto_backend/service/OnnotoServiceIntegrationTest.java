@@ -12,7 +12,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
-import org.testcontainers.containers.GenericContainer;
+import org.springframework.test.context.TestPropertySource;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
@@ -26,6 +26,11 @@ import java.util.Optional;
 import static org.junit.jupiter.api.Assertions.*;
 
 @SpringBootTest
+@TestPropertySource(properties = {
+        "spring.autoconfigure.exclude=org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration,org.springframework.boot.autoconfigure.data.redis.RedisRepositoriesAutoConfiguration",
+        "spring.data.redis.repositories.enabled=false",
+        "spring.cache.type=none"
+})
 @Testcontainers
 @ActiveProfiles("test")
 public class OnnotoServiceIntegrationTest {
@@ -38,10 +43,6 @@ public class OnnotoServiceIntegrationTest {
             .withUsername("test")
             .withPassword("test");
 
-    @Container
-    static GenericContainer<?> redis = new GenericContainer<>("redis:alpine")
-            .withExposedPorts(6379);
-
     @DynamicPropertySource
     static void registerProperties(DynamicPropertyRegistry registry) {
         // PostgreSQL properties
@@ -49,9 +50,10 @@ public class OnnotoServiceIntegrationTest {
         registry.add("spring.datasource.username", postgres::getUsername);
         registry.add("spring.datasource.password", postgres::getPassword);
 
-        // Redis properties
-        registry.add("spring.redis.host", redis::getHost);
-        registry.add("spring.redis.port", redis::getFirstMappedPort);
+        // Completely disable Redis and caching
+        registry.add("spring.cache.type", () -> "none");
+        registry.add("spring.data.redis.repositories.enabled", () -> "false");
+        registry.add("management.health.redis.enabled", () -> "false");
 
         // General test properties
         registry.add("spring.jpa.hibernate.ddl-auto", () -> "create-drop");
@@ -181,7 +183,8 @@ public class OnnotoServiceIntegrationTest {
         assertTrue(stationDetail.isPresent());
         assertNotNull(stationDetail.get().getReliability());
         assertEquals(0, new BigDecimal("95.5").compareTo(stationDetail.get().getReliability().getUptimePercentage()),
-                "BigDecimal values should be numerically equal");    }
+                "BigDecimal values should be numerically equal");
+    }
 
     // Helper methods to create test entities
     private Network createNetwork(String id, String name) {
