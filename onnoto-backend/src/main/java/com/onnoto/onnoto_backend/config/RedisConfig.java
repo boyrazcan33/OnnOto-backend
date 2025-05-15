@@ -18,6 +18,7 @@ import org.springframework.data.redis.serializer.GenericJackson2JsonRedisSeriali
 import org.springframework.data.redis.serializer.RedisSerializationContext;
 import org.springframework.data.redis.serializer.StringRedisSerializer;
 
+import jakarta.annotation.PostConstruct;
 import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
@@ -42,13 +43,24 @@ public class RedisConfig {
     @Value("${spring.redis.apikey:}")
     private String redisApiKey;
 
-    @Value("${spring.redis.ssl:true}")
+    @Value("${spring.redis.ssl:false}")
     private boolean redisSsl;
+
+    @PostConstruct
+    public void logRedisConfiguration() {
+        log.info("Redis Configuration:");
+        log.info("Host: {}", redisHost);
+        log.info("Port: {}", redisPort);
+        log.info("Username: {}", redisUsername);
+        log.info("SSL Enabled: {}", redisSsl);
+        log.info("API Key Present: {}", (redisApiKey != null && !redisApiKey.isEmpty()) ? "Yes" : "No");
+        log.info("Password Present: {}", (redisPassword != null && !redisPassword.isEmpty()) ? "Yes" : "No");
+    }
 
     @Bean
     public RedisConnectionFactory redisConnectionFactory() {
         try {
-            log.info("Configuring Redis Cloud connection to {}:{} with SSL={}", redisHost, redisPort, redisSsl);
+            log.info("Configuring Redis Cloud connection to {}:{} with SSL explicitly disabled", redisHost, redisPort);
             RedisStandaloneConfiguration config = new RedisStandaloneConfiguration();
             config.setHostName(redisHost);
             config.setPort(redisPort);
@@ -60,33 +72,31 @@ public class RedisConfig {
             }
 
             // Set password and API key
-            if (redisApiKey != null && !redisApiKey.isEmpty()) {
+            if (redisPassword != null && !redisPassword.isEmpty()) {
+                // If password is provided, use it for authentication
+                config.setPassword(redisPassword);
+                log.info("Using Redis password for authentication");
+            } else if (redisApiKey != null && !redisApiKey.isEmpty()) {
                 // If API key is provided, use it for authentication
                 config.setPassword(redisApiKey);
-                log.info("Using Redis Cloud API key for authentication");
-            } else if (redisPassword != null && !redisPassword.isEmpty()) {
-                // Otherwise use password
-                config.setPassword(redisPassword);
-                log.info("Using Redis Cloud password for authentication");
+                log.info("Using Redis API key for authentication");
+            } else {
+                log.warn("No Redis authentication credentials provided");
             }
 
-            // Configure SSL based on property
-            LettuceClientConfiguration clientConfig;
-            if (redisSsl) {
-                clientConfig = LettuceClientConfiguration.builder()
-                        .useSsl()
-                        .build();
-                log.info("Redis SSL enabled");
-            } else {
-                clientConfig = LettuceClientConfiguration.builder()
-                        .build();
-                log.info("Redis SSL disabled");
-            }
+            // Create client configuration without SSL
+            LettuceClientConfiguration clientConfig = LettuceClientConfiguration.builder()
+                    // No SSL configuration - explicitly NOT using SSL
+                    .build();
+
+            log.info("Redis SSL explicitly disabled");
 
             return new LettuceConnectionFactory(config, clientConfig);
         } catch (Exception e) {
             log.error("Failed to create Redis connection factory: {}", e.getMessage(), e);
-            throw e;
+            // Log error but allow application to continue without Redis
+            log.warn("Application will continue without Redis. Caching will be disabled.");
+            return null;
         }
     }
 
@@ -103,6 +113,10 @@ public class RedisConfig {
     @Bean
     public RedisCacheManager cacheManager(RedisConnectionFactory connectionFactory) {
         try {
+            if (connectionFactory == null) {
+                throw new IllegalArgumentException("Redis connection factory is null");
+            }
+
             // Create a serializer that can handle Java 8 date/time types
             GenericJackson2JsonRedisSerializer jsonSerializer =
                     new GenericJackson2JsonRedisSerializer(redisObjectMapper());
