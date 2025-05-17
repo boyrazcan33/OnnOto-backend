@@ -32,18 +32,18 @@ RUN cd onnoto-backend && \
     chmod +x mvnw && \
     ./mvnw package -DskipTests
 
-# Create a simple entrypoint script that has better stability
+# Create a revised entrypoint script with better stability
 RUN echo '#!/bin/bash\n\
 set -e\n\
 \n\
-# Start PostgreSQL\n\
+# Start PostgreSQL with explicit foreground option\n\
 echo "Starting PostgreSQL..."\n\
-/usr/local/bin/docker-entrypoint.sh postgres &\n\
+pg_ctl -D "$PGDATA" -o "-c listen_addresses=0.0.0.0" start\n\
 \n\
-# Wait for PostgreSQL to be ready\n\
+# Ensure PostgreSQL is running and wait for it to be ready\n\
 echo "Waiting for PostgreSQL to initialize..."\n\
 RETRIES=30\n\
-until pg_isready -U postgres || [ $RETRIES -eq 0 ]; do\n\
+until pg_isready -h localhost -U postgres || [ $RETRIES -eq 0 ]; do\n\
   echo "Waiting for PostgreSQL... $((RETRIES--)) remaining attempts..."\n\
   sleep 3\n\
 done\n\
@@ -54,7 +54,7 @@ if [ $RETRIES -eq 0 ]; then\n\
 fi\n\
 \n\
 echo "PostgreSQL is ready."\n\
-sleep 5  # Give it a moment to stabilize\n\
+sleep 2  # Give it a moment to stabilize\n\
 \n\
 # Create database if needed\n\
 echo "Ensuring database exists..."\n\
@@ -70,14 +70,42 @@ psql -U postgres -d $DB_NAME -c "CREATE EXTENSION IF NOT EXISTS postgis;"\n\
 echo "Starting Spring Boot application..."\n\
 cd /app/onnoto-backend\n\
 \n\
-# Set minimal memory options to avoid OOM kills\n\
-export JAVA_OPTS="-Xms128m -Xmx256m -XX:+UseG1GC -XX:MaxMetaspaceSize=96m -XX:+HeapDumpOnOutOfMemoryError"\n\
+# Set better memory options to avoid OOM kills\n\
+export JAVA_OPTS="-Xms128m -Xmx384m -XX:+UseG1GC -XX:MaxMetaspaceSize=128m -XX:+HeapDumpOnOutOfMemoryError -XX:+ExitOnOutOfMemoryError"\n\
 \n\
-# Actually print Java memory settings\n\
+# Print Java memory settings\n\
 echo "Java memory settings: $JAVA_OPTS"\n\
 \n\
-# Run with exec to handle signals properly\n\
-exec java $JAVA_OPTS -jar target/onnoto-backend-0.0.1-SNAPSHOT.jar\n\
+# Run the application while keeping PostgreSQL running\n\
+java $JAVA_OPTS -jar target/onnoto-backend-0.0.1-SNAPSHOT.jar &\n\
+APP_PID=$!\n\
+\n\
+# Keep the container running and handle signals properly\n\
+function cleanup() {\n\
+  echo "Shutting down application..."\n\
+  kill -SIGTERM $APP_PID || true\n\
+  wait $APP_PID || true\n\
+  echo "Shutting down PostgreSQL..."\n\
+  pg_ctl -D "$PGDATA" stop -m fast\n\
+  exit 0\n\
+}\n\
+\n\
+trap cleanup SIGINT SIGTERM\n\
+\n\
+# Monitor both processes\n\
+while kill -0 $APP_PID 2>/dev/null; do\n\
+  # Check if PostgreSQL is still running\n\
+  if ! pg_isready -h localhost -U postgres &>/dev/null; then\n\
+    echo "PostgreSQL has stopped, restarting..."\n\
+    pg_ctl -D "$PGDATA" -o "-c listen_addresses=0.0.0.0" start\n\
+    sleep 2\n\
+  fi\n\
+  sleep 5\n\
+done\n\
+\n\
+# If the application exits, shut down PostgreSQL cleanly\n\
+echo "Application has stopped. Shutting down PostgreSQL..."\n\
+pg_ctl -D "$PGDATA" stop -m fast\n\
 ' > /entrypoint.sh
 
 RUN chmod +x /entrypoint.sh
