@@ -1,38 +1,5 @@
-# Use PostGIS as the base image
-FROM postgis/postgis:15-3.3
+# Replace just the entrypoint.sh part in your Dockerfile.railway
 
-# Install the correct Java version
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends \
-    wget ca-certificates && \
-    wget https://download.java.net/java/GA/jdk21.0.1/415e3f918a1f4062a0074a2794853d0d/12/GPL/openjdk-21.0.1_linux-x64_bin.tar.gz -O /tmp/openjdk.tar.gz && \
-    mkdir -p /usr/lib/jvm && \
-    tar -xzf /tmp/openjdk.tar.gz -C /usr/lib/jvm && \
-    rm /tmp/openjdk.tar.gz && \
-    apt-get remove -y wget && \
-    apt-get autoremove -y && \
-    apt-get clean && \
-    rm -rf /var/lib/apt/lists/*
-
-# Set Java environment
-ENV JAVA_HOME=/usr/lib/jvm/jdk-21.0.1
-ENV PATH=$JAVA_HOME/bin:$PATH
-
-# Verify Java installation
-RUN java -version
-
-# Set up working directory
-WORKDIR /app
-
-# Copy your backend application
-COPY onnoto-backend/ ./onnoto-backend/
-
-# Build the application
-RUN cd onnoto-backend && \
-    chmod +x mvnw && \
-    ./mvnw package -DskipTests
-
-# Create entrypoint script
 RUN echo '#!/bin/bash\n\
 set -e\n\
 \n\
@@ -40,27 +7,38 @@ set -e\n\
 /usr/local/bin/docker-entrypoint.sh postgres &\n\
 PG_PID=$!\n\
 \n\
-# Wait for PostgreSQL to start\n\
-until pg_isready -U postgres; do\n\
-  echo "Waiting for PostgreSQL to start..."\n\
+# Wait for PostgreSQL to start properly with a better retry logic\n\
+echo "Waiting for PostgreSQL to start..."\n\
+for i in {1..30}; do\n\
+  if pg_isready -U postgres; then\n\
+    echo "PostgreSQL is ready."\n\
+    break\n\
+  fi\n\
+  if [ $i -eq 30 ]; then\n\
+    echo "Timed out waiting for PostgreSQL to start."\n\
+    exit 1\n\
+  fi\n\
+  echo "Waiting... $i/30"\n\
   sleep 2\n\
 done\n\
 \n\
 # Create database if it doesn\'t exist\n\
-psql -U postgres -tc "SELECT 1 FROM pg_database WHERE datname = '"'"'onnoto'"'"'" | grep -q 1 || psql -U postgres -c "CREATE DATABASE onnoto"\n\
+echo "Setting up database..."\n\
+DB_NAME=${POSTGRES_DB:-onnoto}\n\
+psql -U postgres -tc "SELECT 1 FROM pg_database WHERE datname = '"'"'$DB_NAME'"'"'" | grep -q 1 || psql -U postgres -c "CREATE DATABASE $DB_NAME"\n\
 \n\
 # Enable PostGIS extension\n\
-psql -U postgres -d onnoto -c "CREATE EXTENSION IF NOT EXISTS postgis;"\n\
+echo "Enabling PostGIS..."\n\
+psql -U postgres -d $DB_NAME -c "CREATE EXTENSION IF NOT EXISTS postgis;"\n\
 \n\
-# Start the Spring Boot application\n\
+# Set memory limits for Java to prevent OOM kills\n\
+export JAVA_OPTS="-Xms128m -Xmx384m -XX:+UseG1GC -XX:MaxMetaspaceSize=128m -XX:+UseSerialGC -XX:MaxRAM=512m"\n\
+\n\
+# Start the Spring Boot application with memory limits\n\
+echo "Starting Spring Boot application..."\n\
 cd /app/onnoto-backend\n\
-java -jar target/onnoto-backend-0.0.1-SNAPSHOT.jar\n\
+# Use your existing environment variables instead of hardcoding values\n\
+exec java $JAVA_OPTS -jar target/onnoto-backend-0.0.1-SNAPSHOT.jar\n\
 ' > /entrypoint.sh
 
 RUN chmod +x /entrypoint.sh
-
-# Expose PostgreSQL and application ports
-EXPOSE 5432 8087
-
-# Set the entrypoint script
-ENTRYPOINT ["/entrypoint.sh"]
