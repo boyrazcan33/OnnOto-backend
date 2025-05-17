@@ -1,7 +1,9 @@
-# Use a PostgreSQL image as the base
+# Modified version of your existing Dockerfile.railway
+# This maintains your PostgreSQL base image but fixes the stability issues
+
 FROM postgis/postgis:15-3.3
 
-# Install the Java JDK
+# Install the correct Java version (same as your original)
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
     wget ca-certificates && \
@@ -18,8 +20,13 @@ RUN apt-get update && \
 ENV JAVA_HOME=/usr/lib/jvm/jdk-21.0.1
 ENV PATH=$JAVA_HOME/bin:$PATH
 
-# Copy application files
+# Verify Java installation
+RUN java -version
+
+# Set up working directory
 WORKDIR /app
+
+# Copy your backend application
 COPY onnoto-backend/ ./onnoto-backend/
 
 # Build the application
@@ -27,18 +34,31 @@ RUN cd onnoto-backend && \
     chmod +x mvnw && \
     ./mvnw package -DskipTests
 
-# Copy the custom entrypoint script
+# Key improvement: use a simple supervisor script that properly manages both processes
 RUN echo '#!/bin/bash\n\
 set -e\n\
 \n\
-# Start PostgreSQL using the original entrypoint script\n\
-# Note: This runs PostgreSQL as postgres user\n\
-/usr/local/bin/docker-entrypoint.sh postgres &\n\
+function cleanup() {\n\
+  echo "Signal received, shutting down..."\n\
+  if [ ! -z "$APP_PID" ]; then\n\
+    kill -TERM "$APP_PID" 2>/dev/null || true\n\
+  fi\n\
+  # Shutdown PostgreSQL cleanly\n\
+  su postgres -c "pg_ctl -D $PGDATA stop -m fast" || true\n\
+  exit 0\n\
+}\n\
+\n\
+# Set up signal handling\n\
+trap cleanup SIGINT SIGTERM\n\
+\n\
+# Start PostgreSQL in the background as the postgres user\n\
+echo "Starting PostgreSQL..."\n\
+su postgres -c "pg_ctl -D $PGDATA -l /tmp/postgres.log -w start"\n\
 \n\
 # Wait for PostgreSQL to be ready\n\
 echo "Waiting for PostgreSQL to initialize..."\n\
 RETRIES=30\n\
-until pg_isready -U postgres || [ $RETRIES -eq 0 ]; do\n\
+until su postgres -c "pg_isready" || [ $RETRIES -eq 0 ]; do\n\
   echo "Waiting for PostgreSQL... $((RETRIES--)) remaining attempts..."\n\
   sleep 3\n\
 done\n\
@@ -49,39 +69,42 @@ if [ $RETRIES -eq 0 ]; then\n\
 fi\n\
 \n\
 echo "PostgreSQL is ready."\n\
-sleep 5  # Give it a moment to stabilize\n\
+sleep 2  # Give it a moment to stabilize\n\
 \n\
 # Create database if needed\n\
 echo "Ensuring database exists..."\n\
-DB_NAME="onnoto"\n\
-psql -U postgres -tc "SELECT 1 FROM pg_database WHERE datname = '"'"'$DB_NAME'"'"'" | grep -q 1 || \\\n\
-  psql -U postgres -c "CREATE DATABASE $DB_NAME"\n\
+su postgres -c "psql -tc \\"SELECT 1 FROM pg_database WHERE datname = '"'"'onnoto'"'"';\\" | grep -q 1 || psql -c \\"CREATE DATABASE onnoto\\""\n\
 \n\
 # Enable PostGIS extension\n\
 echo "Enabling PostGIS extension..."\n\
-psql -U postgres -d $DB_NAME -c "CREATE EXTENSION IF NOT EXISTS postgis;"\n\
+su postgres -c "psql -d onnoto -c \\"CREATE EXTENSION IF NOT EXISTS postgis;\\""\n\
 \n\
 # Start the Spring Boot application\n\
 echo "Starting Spring Boot application..."\n\
 cd /app/onnoto-backend\n\
 \n\
-# Set memory options\n\
-export JAVA_OPTS="-Xms128m -Xmx384m -XX:+UseG1GC -XX:MaxMetaspaceSize=128m -XX:+HeapDumpOnOutOfMemoryError"\n\
+# Set minimal memory options to avoid OOM kills\n\
+export JAVA_OPTS="-Xms128m -Xmx256m -XX:+UseG1GC -XX:MaxMetaspaceSize=96m -XX:+HeapDumpOnOutOfMemoryError"\n\
 \n\
-# Print Java memory settings\n\
+# Actually print Java memory settings\n\
 echo "Java memory settings: $JAVA_OPTS"\n\
 \n\
-# Run the Spring Boot application\n\
-exec java $JAVA_OPTS -jar target/onnoto-backend-0.0.1-SNAPSHOT.jar\n\
-' > /custom-entrypoint.sh
+# Start application in the background and save PID\n\
+java $JAVA_OPTS -jar target/onnoto-backend-0.0.1-SNAPSHOT.jar &\n\
+APP_PID=$!\n\
+\n\
+# Wait for the application to exit\n\
+wait $APP_PID\n\
+\n\
+# If we reach here, Spring Boot exited, so shut down PostgreSQL too\n\
+echo "Application exited, shutting down PostgreSQL..."\n\
+su postgres -c "pg_ctl -D $PGDATA stop -m fast"\n\
+' > /entrypoint.sh
 
-RUN chmod +x /custom-entrypoint.sh
-
-# Make sure the entrypoint script can find the original PostgreSQL entrypoint
-RUN ln -s /usr/local/bin/docker-entrypoint.sh /docker-entrypoint.sh
+RUN chmod +x /entrypoint.sh
 
 # Expose ports
 EXPOSE 5432 8087
 
-# Run the custom entrypoint script
-ENTRYPOINT ["/custom-entrypoint.sh"]
+# Set the entrypoint script
+ENTRYPOINT ["/entrypoint.sh"]
