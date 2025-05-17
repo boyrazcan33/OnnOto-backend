@@ -18,9 +18,6 @@ RUN apt-get update && \
 ENV JAVA_HOME=/usr/lib/jvm/jdk-21.0.1
 ENV PATH=$JAVA_HOME/bin:$PATH
 
-# Verify Java installation
-RUN java -version
-
 # Set up working directory
 WORKDIR /app
 
@@ -32,65 +29,83 @@ RUN cd onnoto-backend && \
     chmod +x mvnw && \
     ./mvnw package -DskipTests
 
-# Create a wrapper script that will be our entrypoint
+# Create a simple entrypoint script that fixes WAL corruption
 RUN echo '#!/bin/bash\n\
+set -e\n\
 \n\
-# Start the Spring Boot application\n\
-start_app() {\n\
-  cd /app/onnoto-backend\n\
-  export JAVA_OPTS="-Xms128m -Xmx256m -XX:+UseG1GC -XX:MaxMetaspaceSize=96m -XX:+HeapDumpOnOutOfMemoryError"\n\
-  echo "Starting Spring Boot application with JAVA_OPTS: $JAVA_OPTS"\n\
-  exec java $JAVA_OPTS -jar target/onnoto-backend-0.0.1-SNAPSHOT.jar\n\
+# Function to check and fix PostgreSQL data directory\n\
+fix_postgres_data() {\n\
+  echo "Checking PostgreSQL data directory..."\n\
+  \n\
+  # If PostgreSQL data directory exists\n\
+  if [ -d "$PGDATA" ] && [ -f "$PGDATA/PG_VERSION" ]; then\n\
+    # Check for WAL corruption indicators\n\
+    if [ -f "$PGDATA/recovery.signal" ] || grep -q "invalid record length" "$PGDATA/log/"*.log 2>/dev/null; then\n\
+      echo "Detected WAL corruption, resetting PostgreSQL data directory"\n\
+      rm -rf $PGDATA/*\n\
+      # Initialize PostgreSQL data directory\n\
+      su postgres -c "initdb -D $PGDATA"\n\
+    else\n\
+      echo "PostgreSQL data directory looks good"\n\
+    fi\n\
+  else\n\
+    echo "PostgreSQL data directory needs initialization"\n\
+    # Ensure proper ownership\n\
+    mkdir -p $PGDATA\n\
+    chown -R postgres:postgres $PGDATA\n\
+    chmod 700 $PGDATA\n\
+  fi\n\
 }\n\
 \n\
-# If first arg is "postgres", delegate to the original docker-entrypoint.sh\n\
-if [ "$1" = "postgres" ]; then\n\
-  shift\n\
-  exec docker-entrypoint.sh postgres "$@"\n\
-elif [ "$1" = "app" ]; then\n\
-  start_app\n\
-elif [ "$1" = "both" ] || [ -z "$1" ]; then\n\
-  # Run both PostgreSQL and our app (for combined container deployment)\n\
-  echo "Starting PostgreSQL database..."\n\
-  docker-entrypoint.sh postgres &\n\
+# Check and fix PostgreSQL data\n\
+fix_postgres_data\n\
 \n\
-  # Wait for PostgreSQL to be ready\n\
-  echo "Waiting for PostgreSQL to initialize..."\n\
-  RETRIES=30\n\
-  until pg_isready -h localhost -U postgres 2>/dev/null || [ $RETRIES -eq 0 ]; do\n\
-    echo "Waiting for PostgreSQL... $((RETRIES--)) remaining attempts..."\n\
-    sleep 3\n\
-  done\n\
+# Start PostgreSQL in the background\n\
+echo "Starting PostgreSQL..."\n\
+su postgres -c "pg_ctl -D $PGDATA -l $PGDATA/postgresql.log -o \"-c listen_addresses='"'"'0.0.0.0'"'"'\" start"\n\
 \n\
-  if [ $RETRIES -eq 0 ]; then\n\
-    echo "Failed to connect to PostgreSQL, exiting."\n\
-    exit 1\n\
-  fi\n\
+# Wait for PostgreSQL to be ready\n\
+echo "Waiting for PostgreSQL to initialize..."\n\
+RETRIES=30\n\
+until su postgres -c "pg_isready" || [ $RETRIES -eq 0 ]; do\n\
+  echo "Waiting for PostgreSQL... $((RETRIES--)) remaining attempts..."\n\
+  sleep 3\n\
+done\n\
 \n\
-  echo "PostgreSQL is ready."\n\
-  sleep 2  # Give it a moment to stabilize\n\
-\n\
-  # Create database if needed and enable PostGIS\n\
-  echo "Ensuring database exists..."\n\
-  PGPASSWORD=${POSTGRES_PASSWORD:-postgres} psql -h localhost -U postgres -tc "SELECT 1 FROM pg_database WHERE datname = '"'"'onnoto'"'"'" | grep -q 1 || \n\
-    PGPASSWORD=${POSTGRES_PASSWORD:-postgres} psql -h localhost -U postgres -c "CREATE DATABASE onnoto"\n\
-\n\
-  echo "Enabling PostGIS extension..."\n\
-  PGPASSWORD=${POSTGRES_PASSWORD:-postgres} psql -h localhost -U postgres -d onnoto -c "CREATE EXTENSION IF NOT EXISTS postgis;"\n\
-\n\
-  # Start the Spring Boot application\n\
-  start_app\n\
-else\n\
-  # Pass through any other commands\n\
-  exec "$@"\n\
+if [ $RETRIES -eq 0 ]; then\n\
+  echo "Failed to connect to PostgreSQL, exiting."\n\
+  exit 1\n\
 fi\n\
-' > /wrapper-entrypoint.sh
+\n\
+echo "PostgreSQL is ready."\n\
+sleep 2\n\
+\n\
+# Create database if needed\n\
+echo "Ensuring database exists..."\n\
+su postgres -c "psql -tc \"SELECT 1 FROM pg_database WHERE datname = '"'"'onnoto'"'"'\" | grep -q 1 || psql -c \"CREATE DATABASE onnoto\""\n\
+\n\
+# Enable PostGIS extension\n\
+echo "Enabling PostGIS extension..."\n\
+su postgres -c "psql -d onnoto -c \"CREATE EXTENSION IF NOT EXISTS postgis;\""\n\
+\n\
+# Start the Spring Boot application\n\
+echo "Starting Spring Boot application..."\n\
+cd /app/onnoto-backend\n\
+\n\
+# Set memory options\n\
+export JAVA_OPTS="-Xms64m -Xmx128m -XX:+UseG1GC -XX:MaxMetaspaceSize=64m -XX:+HeapDumpOnOutOfMemoryError"\n\
+\n\
+# Print Java memory settings\n\
+echo "Java memory settings: $JAVA_OPTS"\n\
+\n\
+# Run the Spring Boot application\n\
+java $JAVA_OPTS -jar target/onnoto-backend-0.0.1-SNAPSHOT.jar\n\
+' > /entrypoint.sh
 
-RUN chmod +x /wrapper-entrypoint.sh
+RUN chmod +x /entrypoint.sh
 
 # Expose ports
 EXPOSE 5432 8087
 
-# Use our wrapper entrypoint
-ENTRYPOINT ["/wrapper-entrypoint.sh"]
-CMD ["both"]
+# Set the entrypoint script
+ENTRYPOINT ["/entrypoint.sh"]
