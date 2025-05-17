@@ -1,8 +1,4 @@
 [build]
-builder = "dockerfile"
-dockerfilePath = "Dockerfile.railway"
-
-[deploy]
-healthcheckPath = "/api/health"
-healthcheckTimeout = 300
-restartPolicyType = "on-failure"
+# Use Docker Compose as the build command
+builder = "NIXPACKS"
+nixpacksConfigPath = "nixpacks.toml"
