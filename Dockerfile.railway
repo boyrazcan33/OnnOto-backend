@@ -18,6 +18,9 @@ RUN apt-get update && \
 ENV JAVA_HOME=/usr/lib/jvm/jdk-21.0.1
 ENV PATH=$JAVA_HOME/bin:$PATH
 
+# Verify Java installation
+RUN java -version
+
 # Set up working directory
 WORKDIR /app
 
@@ -29,45 +32,18 @@ RUN cd onnoto-backend && \
     chmod +x mvnw && \
     ./mvnw package -DskipTests
 
-# Create a simple entrypoint script that fixes WAL corruption
+# Create a very simple entrypoint script with minimal changes
 RUN echo '#!/bin/bash\n\
 set -e\n\
 \n\
-# Function to check and fix PostgreSQL data directory\n\
-fix_postgres_data() {\n\
-  echo "Checking PostgreSQL data directory..."\n\
-  \n\
-  # If PostgreSQL data directory exists\n\
-  if [ -d "$PGDATA" ] && [ -f "$PGDATA/PG_VERSION" ]; then\n\
-    # Check for WAL corruption indicators\n\
-    if [ -f "$PGDATA/recovery.signal" ] || grep -q "invalid record length" "$PGDATA/log/"*.log 2>/dev/null; then\n\
-      echo "Detected WAL corruption, resetting PostgreSQL data directory"\n\
-      rm -rf $PGDATA/*\n\
-      # Initialize PostgreSQL data directory\n\
-      su postgres -c "initdb -D $PGDATA"\n\
-    else\n\
-      echo "PostgreSQL data directory looks good"\n\
-    fi\n\
-  else\n\
-    echo "PostgreSQL data directory needs initialization"\n\
-    # Ensure proper ownership\n\
-    mkdir -p $PGDATA\n\
-    chown -R postgres:postgres $PGDATA\n\
-    chmod 700 $PGDATA\n\
-  fi\n\
-}\n\
-\n\
-# Check and fix PostgreSQL data\n\
-fix_postgres_data\n\
-\n\
-# Start PostgreSQL in the background\n\
-echo "Starting PostgreSQL..."\n\
-su postgres -c "pg_ctl -D $PGDATA -l $PGDATA/postgresql.log -o \"-c listen_addresses='"'"'0.0.0.0'"'"'\" start"\n\
+# Start PostgreSQL using the container\'s standard entrypoint\n\
+echo "Starting PostgreSQL with standard entrypoint..."\n\
+/usr/local/bin/docker-entrypoint.sh postgres &\n\
 \n\
 # Wait for PostgreSQL to be ready\n\
 echo "Waiting for PostgreSQL to initialize..."\n\
 RETRIES=30\n\
-until su postgres -c "pg_isready" || [ $RETRIES -eq 0 ]; do\n\
+until pg_isready -U postgres || [ $RETRIES -eq 0 ]; do\n\
   echo "Waiting for PostgreSQL... $((RETRIES--)) remaining attempts..."\n\
   sleep 3\n\
 done\n\
@@ -80,26 +56,18 @@ fi\n\
 echo "PostgreSQL is ready."\n\
 sleep 2\n\
 \n\
-# Create database if needed\n\
-echo "Ensuring database exists..."\n\
-su postgres -c "psql -tc \"SELECT 1 FROM pg_database WHERE datname = '"'"'onnoto'"'"'\" | grep -q 1 || psql -c \"CREATE DATABASE onnoto\""\n\
-\n\
-# Enable PostGIS extension\n\
-echo "Enabling PostGIS extension..."\n\
-su postgres -c "psql -d onnoto -c \"CREATE EXTENSION IF NOT EXISTS postgis;\""\n\
-\n\
 # Start the Spring Boot application\n\
 echo "Starting Spring Boot application..."\n\
 cd /app/onnoto-backend\n\
 \n\
-# Set memory options\n\
+# Set very minimal memory options\n\
 export JAVA_OPTS="-Xms64m -Xmx128m -XX:+UseG1GC -XX:MaxMetaspaceSize=64m -XX:+HeapDumpOnOutOfMemoryError"\n\
 \n\
 # Print Java memory settings\n\
 echo "Java memory settings: $JAVA_OPTS"\n\
 \n\
 # Run the Spring Boot application\n\
-java $JAVA_OPTS -jar target/onnoto-backend-0.0.1-SNAPSHOT.jar\n\
+exec java $JAVA_OPTS -jar target/onnoto-backend-0.0.1-SNAPSHOT.jar\n\
 ' > /entrypoint.sh
 
 RUN chmod +x /entrypoint.sh
