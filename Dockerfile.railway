@@ -32,51 +32,57 @@ RUN cd onnoto-backend && \
     chmod +x mvnw && \
     ./mvnw package -DskipTests
 
-# Create entrypoint script with the improved version
+# Create a simple entrypoint script that has better stability
 RUN echo '#!/bin/bash\n\
 set -e\n\
 \n\
-# Start PostgreSQL in background\n\
+# Start PostgreSQL\n\
+echo "Starting PostgreSQL..."\n\
 /usr/local/bin/docker-entrypoint.sh postgres &\n\
-PG_PID=$!\n\
 \n\
-# Wait for PostgreSQL to start properly with a better retry logic\n\
-echo "Waiting for PostgreSQL to start..."\n\
-for i in {1..30}; do\n\
-  if pg_isready -U postgres; then\n\
-    echo "PostgreSQL is ready."\n\
-    break\n\
-  fi\n\
-  if [ $i -eq 30 ]; then\n\
-    echo "Timed out waiting for PostgreSQL to start."\n\
-    exit 1\n\
-  fi\n\
-  echo "Waiting... $i/30"\n\
-  sleep 2\n\
+# Wait for PostgreSQL to be ready\n\
+echo "Waiting for PostgreSQL to initialize..."\n\
+RETRIES=30\n\
+until pg_isready -U postgres || [ $RETRIES -eq 0 ]; do\n\
+  echo "Waiting for PostgreSQL... $((RETRIES--)) remaining attempts..."\n\
+  sleep 3\n\
 done\n\
 \n\
-# Create database if it doesn\'t exist\n\
-echo "Setting up database..."\n\
-DB_NAME=${POSTGRES_DB:-onnoto}\n\
-psql -U postgres -tc "SELECT 1 FROM pg_database WHERE datname = '"'"'$DB_NAME'"'"'" | grep -q 1 || psql -U postgres -c "CREATE DATABASE $DB_NAME"\n\
+if [ $RETRIES -eq 0 ]; then\n\
+  echo "Failed to connect to PostgreSQL, exiting."\n\
+  exit 1\n\
+fi\n\
+\n\
+echo "PostgreSQL is ready."\n\
+sleep 5  # Give it a moment to stabilize\n\
+\n\
+# Create database if needed\n\
+echo "Ensuring database exists..."\n\
+DB_NAME="onnoto"\n\
+psql -U postgres -tc "SELECT 1 FROM pg_database WHERE datname = '"'"'$DB_NAME'"'"'" | grep -q 1 || \n\
+  psql -U postgres -c "CREATE DATABASE $DB_NAME"\n\
 \n\
 # Enable PostGIS extension\n\
-echo "Enabling PostGIS..."\n\
+echo "Enabling PostGIS extension..."\n\
 psql -U postgres -d $DB_NAME -c "CREATE EXTENSION IF NOT EXISTS postgis;"\n\
 \n\
-# Set memory limits for Java to prevent OOM kills\n\
-export JAVA_OPTS="-Xms128m -Xmx384m -XX:+UseG1GC -XX:MaxMetaspaceSize=128m -XX:+UseSerialGC -XX:MaxRAM=512m"\n\
-\n\
-# Start the Spring Boot application with memory limits\n\
+# Start the Spring Boot application\n\
 echo "Starting Spring Boot application..."\n\
 cd /app/onnoto-backend\n\
-# Use your existing environment variables instead of hardcoding values\n\
+\n\
+# Set minimal memory options to avoid OOM kills\n\
+export JAVA_OPTS="-Xms128m -Xmx256m -XX:+UseG1GC -XX:MaxMetaspaceSize=96m -XX:+HeapDumpOnOutOfMemoryError"\n\
+\n\
+# Actually print Java memory settings\n\
+echo "Java memory settings: $JAVA_OPTS"\n\
+\n\
+# Run with exec to handle signals properly\n\
 exec java $JAVA_OPTS -jar target/onnoto-backend-0.0.1-SNAPSHOT.jar\n\
 ' > /entrypoint.sh
 
 RUN chmod +x /entrypoint.sh
 
-# Expose PostgreSQL and application ports
+# Expose ports
 EXPOSE 5432 8087
 
 # Set the entrypoint script
