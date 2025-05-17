@@ -1,10 +1,61 @@
-FROM maven:3.9.9-eclipse-temurin-21-jammy AS build
-WORKDIR /app
-COPY onnoto-backend /app
-RUN mvn clean package -DskipTests
+# Start with PostGIS image
+FROM postgis/postgis:15-3.3
 
-FROM openjdk:21-slim
+# Install OpenJDK 21 from the correct repository
+RUN apt-get update && \
+    apt-get install -y curl gnupg software-properties-common && \
+    mkdir -p /etc/apt/keyrings && \
+    curl -fsSL https://apt.bell-sw.com/bellsoft.key | gpg --dearmor -o /etc/apt/keyrings/bellsoft.gpg && \
+    echo "deb [signed-by=/etc/apt/keyrings/bellsoft.gpg] https://apt.bell-sw.com/ stable main" | tee /etc/apt/sources.list.d/bellsoft.list && \
+    apt-get update && \
+    apt-get install -y bellsoft-java21 && \
+    rm -rf /var/lib/apt/lists/*
+
+# Set JAVA_HOME
+ENV JAVA_HOME=/usr/lib/jvm/bellsoft-java21-amd64
+
+# Create work directory
 WORKDIR /app
-COPY --from=build /app/target/onnoto-backend-0.0.1-SNAPSHOT.jar app.jar
-EXPOSE 8087
-ENTRYPOINT ["java", "-jar", "app.jar"]
+
+# Copy the backend application
+COPY onnoto-backend/ ./onnoto-backend/
+
+# Build the JAR
+RUN cd onnoto-backend && ./mvnw package -DskipTests
+
+# Create entrypoint script
+RUN echo '#!/bin/bash\n\
+set -e\n\
+\n\
+# Start PostgreSQL in background\n\
+/usr/lib/postgresql/15/bin/postgres -D /var/lib/postgresql/data &\n\
+PG_PID=$!\n\
+\n\
+# Wait for PostgreSQL to start\n\
+until pg_isready -U postgres; do\n\
+  echo "Waiting for PostgreSQL to start..."\n\
+  sleep 2\n\
+done\n\
+\n\
+# Create database if it doesn\'t exist\n\
+psql -U postgres -c "CREATE DATABASE onnoto;" || echo "Database already exists"\n\
+\n\
+# Enable PostGIS extension\n\
+psql -U postgres -d onnoto -c "CREATE EXTENSION IF NOT EXISTS postgis;"\n\
+\n\
+# Start the Spring Boot application\n\
+cd /app/onnoto-backend\n\
+java -jar target/onnoto-backend-0.0.1-SNAPSHOT.jar &\n\
+JAVA_PID=$!\n\
+\n\
+# Monitor both processes\n\
+wait $PG_PID $JAVA_PID\n\
+' > /entrypoint.sh
+
+RUN chmod +x /entrypoint.sh
+
+# Expose ports for PostgreSQL and the backend application
+EXPOSE 5432 8087
+
+# Run both services
+ENTRYPOINT ["/entrypoint.sh"]
