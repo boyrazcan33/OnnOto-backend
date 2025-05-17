@@ -1,5 +1,38 @@
-# Replace just the entrypoint.sh part in your Dockerfile.railway
+# Use PostGIS as the base image
+FROM postgis/postgis:15-3.3
 
+# Install the correct Java version
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+    wget ca-certificates && \
+    wget https://download.java.net/java/GA/jdk21.0.1/415e3f918a1f4062a0074a2794853d0d/12/GPL/openjdk-21.0.1_linux-x64_bin.tar.gz -O /tmp/openjdk.tar.gz && \
+    mkdir -p /usr/lib/jvm && \
+    tar -xzf /tmp/openjdk.tar.gz -C /usr/lib/jvm && \
+    rm /tmp/openjdk.tar.gz && \
+    apt-get remove -y wget && \
+    apt-get autoremove -y && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+# Set Java environment
+ENV JAVA_HOME=/usr/lib/jvm/jdk-21.0.1
+ENV PATH=$JAVA_HOME/bin:$PATH
+
+# Verify Java installation
+RUN java -version
+
+# Set up working directory
+WORKDIR /app
+
+# Copy your backend application
+COPY onnoto-backend/ ./onnoto-backend/
+
+# Build the application
+RUN cd onnoto-backend && \
+    chmod +x mvnw && \
+    ./mvnw package -DskipTests
+
+# Create entrypoint script with the improved version
 RUN echo '#!/bin/bash\n\
 set -e\n\
 \n\
@@ -42,3 +75,9 @@ exec java $JAVA_OPTS -jar target/onnoto-backend-0.0.1-SNAPSHOT.jar\n\
 ' > /entrypoint.sh
 
 RUN chmod +x /entrypoint.sh
+
+# Expose PostgreSQL and application ports
+EXPOSE 5432 8087
+
+# Set the entrypoint script
+ENTRYPOINT ["/entrypoint.sh"]
