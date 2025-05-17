@@ -1,4 +1,3 @@
 [build]
-# Use Docker Compose as the build command
-builder = "NIXPACKS"
-nixpacksConfigPath = "nixpacks.toml"
+builder = "DOCKERFILE"
+dockerfilePath = "Dockerfile.railway"
