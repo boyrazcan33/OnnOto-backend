@@ -1,6 +1,6 @@
 [build]
 builder = "nixpacks"
-buildCommand = "cd onnoto-backend && ./mvnw package -DskipTests"
+buildCommand = "cd onnoto-backend && chmod +x ./mvnw && ./mvnw package -DskipTests"
 
 [deploy]
 startCommand = "cd onnoto-backend && java -jar target/onnoto-backend-0.0.1-SNAPSHOT.jar"
