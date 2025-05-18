@@ -12,4 +12,6 @@ RUN chmod +x /app/mvnw && \
 
 # Run the application
 EXPOSE 8087
+ENV SERVER_PORT=8087
+
 CMD ["java", "-jar", "/app/target/onnoto-backend-0.0.1-SNAPSHOT.jar"]
