@@ -2,11 +2,12 @@ FROM openjdk:21-slim
 
 WORKDIR /app
 
-# Copy the JAR file from onnoto-backend/target
-COPY onnoto-backend/target/onnoto-backend-0.0.1-SNAPSHOT.jar app.jar
+# Copy the entire backend directory
+COPY onnoto-backend/ /app/
 
-# Expose port
-EXPOSE 8087
+# Build the application
+RUN cd /app && ./mvnw clean package -DskipTests
 
 # Run the application
-CMD ["java", "-jar", "app.jar"]
+EXPOSE 8087
+CMD ["java", "-jar", "/app/target/onnoto-backend-0.0.1-SNAPSHOT.jar"]
