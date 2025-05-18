@@ -5,8 +5,10 @@ WORKDIR /app
 # Copy the entire backend directory
 COPY onnoto-backend/ /app/
 
-# Build the application
-RUN cd /app && ./mvnw clean package -DskipTests
+# Make the Maven wrapper executable and build the application
+RUN chmod +x /app/mvnw && \
+    cd /app && \
+    ./mvnw clean package -DskipTests
 
 # Run the application
 EXPOSE 8087
