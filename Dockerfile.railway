@@ -60,8 +60,8 @@ sleep 2\n\
 echo "Starting Spring Boot application..."\n\
 cd /app/onnoto-backend\n\
 \n\
-# Set very minimal memory options\n\
-export JAVA_OPTS="-Xms64m -Xmx128m -XX:+UseG1GC -XX:MaxMetaspaceSize=64m -XX:+HeapDumpOnOutOfMemoryError"\n\
+# Set better memory options for Spring Boot\n\
+export JAVA_OPTS="-Xms128m -Xmx256m -XX:+UseG1GC -XX:MaxMetaspaceSize=128m -XX:+HeapDumpOnOutOfMemoryError -XX:+ExitOnOutOfMemoryError -XX:MinHeapFreeRatio=20 -XX:MaxHeapFreeRatio=40"\n\
 \n\
 # Print Java memory settings\n\
 echo "Java memory settings: $JAVA_OPTS"\n\
