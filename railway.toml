@@ -1,9 +1,9 @@
 [build]
-builder = "DOCKERFILE"
-dockerfilePath = "onnoto-backend/Dockerfile"
+builder = "nixpacks"
+buildCommand = "cd onnoto-backend && ./mvnw package -DskipTests"
 
 [deploy]
-startCommand = "java -jar /app/app.jar"
+startCommand = "cd onnoto-backend && java -jar target/onnoto-backend-0.0.1-SNAPSHOT.jar"
 healthcheckPath = "/api/health"
 healthcheckTimeout = 90
 restartPolicyType = "ON_FAILURE"
