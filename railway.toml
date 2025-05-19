@@ -1,10 +1,6 @@
 [build]
 builder = "nixpacks"
-buildCommand = """
-export JAVA_HOME=/usr/lib/jvm/java-21-openjdk
-export PATH=$JAVA_HOME/bin:$PATH
-cd onnoto-backend && chmod +x mvnw && ./mvnw clean package -DskipTests
-"""
+buildCommand = "cd onnoto-backend && chmod +x mvnw && JAVA_HOME=/nix/store/*-openjdk-* PATH=$JAVA_HOME/bin:$PATH ./mvnw clean package -DskipTests"
 
 [deploy]
 startCommand = "cd onnoto-backend && java -Dserver.port=$PORT -jar target/onnoto-backend-0.0.1-SNAPSHOT.jar"
