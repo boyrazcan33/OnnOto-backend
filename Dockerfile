@@ -8,5 +8,18 @@ FROM eclipse-temurin:21-jre
 WORKDIR /app
 COPY --from=build /app/target/*.jar app.jar
 
-# Add JVM memory settings and port configuration
-CMD ["sh", "-c", "java -XX:MaxRAMPercentage=75.0 -Xms128m -jar app.jar --server.port=${PORT:-8087}"]
+# Add JVM memory limits
+ENV JAVA_OPTS="-XX:MaxRAMPercentage=70.0 -Xms128m -Xmx512m -XX:+UseG1GC"
+
+# Add the start script
+RUN echo '#!/bin/sh\n\
+echo "Starting application with memory settings: $JAVA_OPTS"\n\
+\n\
+# Run the application with memory limits\n\
+exec java $JAVA_OPTS -jar app.jar\n\
+' > /app/start.sh
+
+RUN chmod +x /app/start.sh
+
+# Use the startup script
+CMD ["/app/start.sh"]
