@@ -1,8 +1,11 @@
-[build]
-builder = "nixpacks"
-buildCommand = "cd onnoto-backend && ./mvnw clean package -DskipTests"
+[phases.setup]
+aptPkgs = ['default-jdk', 'maven']
 
-[deploy]
-startCommand = "cd onnoto-backend && java -jar target/*.jar"
-healthcheckPath = "/api/health"
-healthcheckTimeout = 300
+[phases.build]
+cmds = [
+    'cd onnoto-backend && chmod +x mvnw',
+    'cd onnoto-backend && ./mvnw clean package -DskipTests'
+]
+
+[start]
+cmd = 'cd onnoto-backend && java -jar target/*.jar'
