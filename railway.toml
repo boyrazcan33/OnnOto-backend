@@ -1,0 +1,8 @@
+[build]
+builder = "nixpacks"
+buildCommand = "cd onnoto-backend && ./mvnw clean package -DskipTests"
+
+[deploy]
+startCommand = "cd onnoto-backend && java -jar target/*.jar"
+healthcheckPath = "/api/health"
+healthcheckTimeout = 300
