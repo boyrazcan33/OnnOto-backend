@@ -1,0 +1,21 @@
+FROM postgis/postgis:15-3.3
+
+# Set environment variables with defaults (will be overridden by Railway env vars if provided)
+ENV POSTGRES_DB=onnoto
+ENV POSTGRES_USER=postgres
+ENV POSTGRES_PASSWORD=GRES3030
+
+# Create PostgreSQL data directory and set permissions
+RUN mkdir -p /var/lib/postgresql/data && \
+    chown -R postgres:postgres /var/lib/postgresql/data && \
+    chmod 700 /var/lib/postgresql/data
+
+# Enable PostGIS extension automatically
+RUN echo "CREATE EXTENSION IF NOT EXISTS postgis;" > /docker-entrypoint-initdb.d/enable_postgis.sql
+
+# Health check for container orchestration
+HEALTHCHECK --interval=10s --timeout=5s --start-period=30s --retries=3 \
+  CMD pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB} || exit 1
+
+# Expose PostgreSQL port
+EXPOSE 5432
