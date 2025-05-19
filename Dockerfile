@@ -7,4 +7,4 @@ RUN ./mvnw clean package -DskipTests
 FROM eclipse-temurin:21-jre
 WORKDIR /app
 COPY --from=build /app/target/*.jar app.jar
-CMD ["sh", "-c", "java -jar app.jar --server.port=${PORT:8087}"]
+CMD ["sh", "-c", "java -jar app.jar --server.port=${PORT:-8087}"]
