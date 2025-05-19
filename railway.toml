@@ -1,11 +1,8 @@
-[phases.setup]
-nixPkgs = ["jdk", "maven"]
+[build]
+builder = "nixpacks"
+buildCommand = "cd onnoto-backend && chmod +x mvnw && ./mvnw clean package -DskipTests"
 
-[phases.install]
-cmds = ["cd onnoto-backend && chmod +x mvnw"]
-
-[phases.build]
-cmds = ["cd onnoto-backend && ./mvnw clean package -DskipTests"]
-
-[start]
-cmd = "cd onnoto-backend && java -jar target/onnoto-backend-0.0.1-SNAPSHOT.jar"
+[deploy]
+startCommand = "cd onnoto-backend && java -Dserver.port=$PORT -jar target/onnoto-backend-0.0.1-SNAPSHOT.jar"
+healthcheckPath = "/api/health"
+healthcheckTimeout = 300
