@@ -13,14 +13,21 @@ import java.util.List;
 @Configuration
 public class CorsConfig {
 
-    @Value("${onnoto.cors.allowed-origins=http://localhost:8080,https://onnoto.com,http://localhost:3000,https://onnoto-frontend-production.up.railway.app}")    private List<String> allowedOrigins;
+    @Value("${onnoto.cors.allowed-origins=http://localhost:8080,https://onnoto.com,http://localhost:3000,https://onnoto-frontend-production.up.railway.app}")
+    private List<String> allowedOrigins;
 
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
         configuration.setAllowedOrigins(allowedOrigins);
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
-        configuration.setAllowedHeaders(Arrays.asList("Authorization", "Content-Type", "X-Device-ID"));
+        configuration.setAllowedHeaders(Arrays.asList(
+                "Authorization",
+                "Content-Type",
+                "X-Device-ID",
+                "Cache-Control",
+                "Accept"
+        ));
         configuration.setExposedHeaders(Arrays.asList("X-Device-ID"));
         configuration.setAllowCredentials(true);
         configuration.setMaxAge(3600L);
