@@ -30,8 +30,7 @@
 
 # Application specific
 **\application-local.properties
-**\application-dev.properties
-**\application-prod.properties
+
 
 # flyctl launch added from .idea\.gitignore
 # Default ignored files
