@@ -1,78 +1,21 @@
-# flyctl launch added from .gitignore
-# Environment variables
-**\.env
-**\.env.*
+Environment variables
+.env .env.*
 
-# Docker volumes
-**\volumes
-**\**\postgres_data
-**\**\redis_data
+Docker volumes
+volumes/ **/postgres_data/ **/redis_data/
 
-# Logs
-**\logs
-**\*.log
+Logs
+logs/ *.log
 
-# Build artifacts
-**\target
-**\build
-**\dist
+Build artifacts
+target/ build/ dist/
 
-# IDE specific files
-**\.idea
-**\.vscode
-**\*.iml
-**\*.iws
-**\*.ipr
+IDE specific files
+.idea/ .vscode/ *.iml *.iws *.ipr
 
-# OS specific files
-**\.DS_Store
-**\Thumbs.db
+OS specific files
+.DS_Store Thumbs.db
 
-# Application specific
-**\application-local.properties
+Application specific
+application-local.properties
 
-
-# flyctl launch added from .idea\.gitignore
-# Default ignored files
-.idea\shelf
-.idea\workspace.xml
-
-# flyctl launch added from onnoto-backend\.gitignore
-onnoto-backend\**\HELP.md
-onnoto-backend\**\target
-!onnoto-backend\**\.mvn\wrapper\maven-wrapper.jar
-!onnoto-backend\**\**\src\main\**\target
-!onnoto-backend\**\**\src\test\**\target
-
-### STS ###
-onnoto-backend\**\.apt_generated
-onnoto-backend\**\.classpath
-onnoto-backend\**\.factorypath
-onnoto-backend\**\.project
-onnoto-backend\**\.settings
-onnoto-backend\**\.springBeans
-onnoto-backend\**\.sts4-cache
-
-### IntelliJ IDEA ###
-onnoto-backend\**\.idea
-onnoto-backend\**\*.iws
-onnoto-backend\**\*.iml
-onnoto-backend\**\*.ipr
-
-onnoto-backend\**\.env
-onnoto-backend\**\+
-
-
-### NetBeans ###
-onnoto-backend\nbproject\private
-onnoto-backend\nbbuild
-onnoto-backend\dist
-onnoto-backend\nbdist
-onnoto-backend\.nb-gradle
-onnoto-backend\**\build
-!onnoto-backend\**\**\src\main\**\build
-!onnoto-backend\**\**\src\test\**\build
-
-### VS Code ###
-onnoto-backend\**\.vscode
-fly.toml
