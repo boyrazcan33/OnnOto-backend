@@ -40,6 +40,12 @@ public class OpenChargeMapProvider extends BaseDataProvider {
     @Value("${onnoto.provider.opencharge.max-results:200}")
     private int maxResults;
 
+    @Value("${onnoto.provider.opencharge.api-key:}")
+    private String apiKey;
+
+    private static final int MAX_RETRY_ATTEMPTS = 3;
+    private static final long RETRY_DELAY_MS = 2000; // 2 seconds
+
     public OpenChargeMapProvider(
             RestTemplate restTemplate,
             StationRepository stationRepository,
@@ -64,12 +70,24 @@ public class OpenChargeMapProvider extends BaseDataProvider {
         try {
             log.info("Fetching stations from OpenChargeMap API");
 
-            String url = String.format("%s?countrycode=%s&maxresults=%d&output=json&includecomments=false&verbose=false",
-                    baseUrl, countryCode, maxResults);
+            // Build URL with API key
+            StringBuilder urlBuilder = new StringBuilder();
+            urlBuilder.append(String.format("%s?countrycode=%s&maxresults=%d&output=json&includecomments=false&verbose=false",
+                    baseUrl, countryCode, maxResults));
 
-            String response = restTemplate.getForObject(url, String.class);
+            // Add API key if available
+            if (apiKey != null && !apiKey.isEmpty()) {
+                urlBuilder.append("&key=").append(apiKey);
+            }
+
+            String url = urlBuilder.toString();
+
+            // Log the URL without the API key for security
+            log.debug("Requesting OpenChargeMap data from: {}", url.replaceAll("&key=[^&]*", "&key=REDACTED"));
+
+            String response = fetchWithRetry(url);
             if (response == null) {
-                log.warn("No response from OpenChargeMap API");
+                log.warn("No response from OpenChargeMap API after retries");
                 return Collections.emptyList();
             }
 
@@ -121,13 +139,68 @@ public class OpenChargeMapProvider extends BaseDataProvider {
     @Override
     public boolean isAvailable() {
         try {
-            String url = String.format("%s?countrycode=%s&maxresults=1", baseUrl, countryCode);
-            String response = restTemplate.getForObject(url, String.class);
+            // Build URL with API key
+            StringBuilder urlBuilder = new StringBuilder();
+            urlBuilder.append(String.format("%s?countrycode=%s&maxresults=1", baseUrl, countryCode));
+
+            // Add API key if available
+            if (apiKey != null && !apiKey.isEmpty()) {
+                urlBuilder.append("&key=").append(apiKey);
+            }
+
+            String url = urlBuilder.toString();
+
+            // Log URL without API key
+            log.debug("Checking OpenChargeMap availability with: {}",
+                    url.replaceAll("&key=[^&]*", "&key=REDACTED"));
+
+            String response = fetchWithRetry(url);
             return response != null && !response.trim().isEmpty();
         } catch (Exception e) {
             log.error("OpenChargeMap API is not available: {}", e.getMessage());
             return false;
         }
+    }
+
+    private String fetchWithRetry(String url) {
+        int attempts = 0;
+        Exception lastException = null;
+
+        while (attempts < MAX_RETRY_ATTEMPTS) {
+            try {
+                String response = restTemplate.getForObject(url, String.class);
+                if (response != null && !response.trim().isEmpty()) {
+                    return response;
+                }
+                log.warn("Empty response from OpenChargeMap API, attempt {}/{}",
+                        attempts + 1, MAX_RETRY_ATTEMPTS);
+            } catch (Exception e) {
+                lastException = e;
+                log.warn("Error fetching from OpenChargeMap API, attempt {}/{}: {}",
+                        attempts + 1, MAX_RETRY_ATTEMPTS, e.getMessage());
+            }
+
+            attempts++;
+
+            if (attempts < MAX_RETRY_ATTEMPTS) {
+                try {
+                    Thread.sleep(RETRY_DELAY_MS);
+                } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                    break;
+                }
+            }
+        }
+
+        if (lastException != null) {
+            log.error("Failed to fetch data from OpenChargeMap API after {} attempts: {}",
+                    MAX_RETRY_ATTEMPTS, lastException.getMessage());
+        } else {
+            log.error("Failed to fetch data from OpenChargeMap API after {} attempts: Empty responses",
+                    MAX_RETRY_ATTEMPTS);
+        }
+
+        return null;
     }
 
     private Station parseStation(JsonNode stationNode) {
