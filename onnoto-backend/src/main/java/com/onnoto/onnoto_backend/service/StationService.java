@@ -139,7 +139,8 @@ public class StationService {
         response.setTotalConnectors(connectors.size());
 
         long availableCount = connectors.stream()
-                .filter(c -> "AVAILABLE".equals(c.getStatus()))
+                .filter(c -> "AVAILABLE".equals(c.getStatus()) ||
+                        "UNKNOWN".equals(c.getStatus()))
                 .count();
         response.setAvailableConnectors((int) availableCount);
 
