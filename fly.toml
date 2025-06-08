@@ -1,22 +1,43 @@
-# fly.toml app configuration file generated for onnoto on 2025-05-20T08:06:01+03:00
-#
-# See https://fly.io/docs/reference/configuration/ for information about how to use this file.
-#
-
+# fly.toml app configuration file - Balanced cost/performance optimization
 app = 'onnoto'
 primary_region = 'arn'
 
 [build]
 
+[env]
+# JVM memory optimizations for 512MB container - balanced performance
+JAVA_OPTS = "-Xmx400m -Xms128m -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -XX:+UseContainerSupport"
+
 [http_service]
-  internal_port = 8087
-  force_https = true
-  auto_stop_machines = 'stop'
-  auto_start_machines = true
-  min_machines_running = 1
-  processes = ['app']
+internal_port = 8087
+force_https = true
+auto_stop_machines = 'suspend'  # Use suspend instead of stop for faster startup
+auto_start_machines = true
+min_machines_running = 1  # Keep 1 running for immediate response
+max_machines_running = 2  # Allow scaling during high load
+processes = ['app']
+
+[http_service.concurrency]
+type = "connections"
+hard_limit = 50
+soft_limit = 40
+
+# Health checks to ensure quality
+[[services.http_checks]]
+interval = "10s"
+grace_period = "5s"
+method = "GET"
+path = "/api/health"
+protocol = "http"
+timeout = "2s"
+tls_skip_verify = false
+headers = {}
 
 [[vm]]
-  memory = '1gb'
-  cpu_kind = 'shared'
-  cpus = 1
+memory = '256mb'  # Reduced from 1gb to 512mb - good balance
+cpu_kind = 'shared'
+cpus = 1
+
+# Restart policy for reliability
+[restart]
+policy = "on-failure"
