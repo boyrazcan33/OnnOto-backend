@@ -23,6 +23,25 @@ import java.util.*;
 @Component
 public class ElmoNetworkProvider extends BaseDataProvider {
 
+    /**
+     * ELMO Network Provider - Creates test data for Estonian EV charging stations
+     *
+     * DATA CREATION:
+     * - 70 realistic Estonian charging stations: Generated with AI help
+     * - Business logic and algorithms: Written by developer
+     *
+     * The AI helped create realistic station data with:
+     * - Real GPS coordinates for Estonian cities
+     * - Correct postal codes and addresses
+     * - Good coverage across Estonia (Tallinn, Tartu, Pärnu, etc.)
+     *
+     * The developer wrote all the important business code:
+     * - How stations update their status
+     * - How to calculate reliability scores
+     * - How to detect problems with stations
+     * - How to connect to external APIs
+     */
+
     private final NetworkRepository networkRepository;
     private final OperatorRepository operatorRepository;
 
