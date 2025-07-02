@@ -7,6 +7,7 @@ import com.onnoto.onnoto_backend.model.Network;
 import com.onnoto.onnoto_backend.model.Operator;
 import com.onnoto.onnoto_backend.model.Station;
 import com.onnoto.onnoto_backend.repository.*;
+import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
@@ -30,6 +31,13 @@ public class GooglePlacesProvider extends BaseDataProvider {
 
     @Value("${onnoto.provider.google.api-key}")
     private String apiKey;
+
+    // Add this method to check if the API key is loaded
+    @PostConstruct
+    public void init() {
+        log.info("Google API Key loaded: {}", apiKey != null && !apiKey.isEmpty() ? "***KEY_PRESENT***" : "NULL_OR_EMPTY");
+        log.info("Google API Key value: {}", apiKey); // Temporarily log the actual value to debug
+    }
 
     @Value("${onnoto.provider.google.nearby-search-url:https://maps.googleapis.com/maps/api/place/nearbysearch/json}")
     private String nearbySearchUrl;

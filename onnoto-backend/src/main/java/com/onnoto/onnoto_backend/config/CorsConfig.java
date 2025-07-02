@@ -13,7 +13,7 @@ import java.util.List;
 @Configuration
 public class CorsConfig {
 
-    @Value("${onnoto.cors.allowed-origins=http://localhost:8080,https://onnoto.com,http://localhost:3000,https://onnoto-frontend-production.up.railway.app,https://www.onnoto.com}")
+    @Value("${onnoto.cors.allowed-origins=http://localhost:8080,https://onnoto.com,http://localhost:3000,https://onnoto-frontend-57045655083.us-central1.run.app,https://onnoto-frontend-production.up.railway.app,https://www.onnoto.com}")
     private List<String> allowedOrigins;
 
     @Bean
