@@ -34,4 +34,10 @@ public class ReliabilityController {
             @RequestParam BigDecimal minimumUptime) {
         return reliabilityService.getStationsWithMinimumReliability(minimumUptime);
     }
+
+    @GetMapping("/refresh-cache")
+    public ResponseEntity<String> refreshCache() {
+        reliabilityService.refreshReliabilityData();
+        return ResponseEntity.ok("Reliability cache cleared successfully");
+    }
 }
