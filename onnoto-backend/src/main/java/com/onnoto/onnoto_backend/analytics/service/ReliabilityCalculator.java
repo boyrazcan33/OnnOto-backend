@@ -31,9 +31,9 @@ public class ReliabilityCalculator {
 
     private static final int ANALYSIS_PERIOD_DAYS = 30;
     private static final int MIN_DATA_POINTS = 10;
-    private static final double WEIGHT_UPTIME = 0.6;
-    private static final double WEIGHT_STABILITY = 0.2;
-    private static final double WEIGHT_REPORTS = 0.2;
+    private static final double WEIGHT_UPTIME = 0.8;
+    private static final double WEIGHT_STABILITY = 0.1;
+    private static final double WEIGHT_REPORTS = 0.1;
 
     /**
      * Calculate reliability scores for all stations
@@ -104,7 +104,7 @@ public class ReliabilityCalculator {
                 .sum();
 
         if (totalCount == 0) {
-            return BigDecimal.valueOf(50.0); // Default for no data
+            return BigDecimal.valueOf(90.0); // Default for no data
         }
 
         int availableCount = statusCounts.stream()
@@ -125,7 +125,7 @@ public class ReliabilityCalculator {
         // Convert to a score (0-100)
         // More transitions = lower score
         // Example: 0 transitions = 100, 20+ transitions = 0
-        long maxTransitions = 20;
+        long maxTransitions = 40;
         long cappedTransitions = Math.min(transitionCount, maxTransitions);
 
         return BigDecimal.valueOf(100)
@@ -176,7 +176,7 @@ public class ReliabilityCalculator {
         // Partial confidence
         return BigDecimal.valueOf(sampleSize)
                 .divide(BigDecimal.valueOf(MIN_DATA_POINTS), 2, RoundingMode.HALF_UP)
-                .add(BigDecimal.valueOf(0.5)); // Base confidence of 0.5
+                .add(BigDecimal.valueOf(0.8)); // Base confidence of 0.8
     }
 
     private void updateReliabilityMetric(Station station, BigDecimal uptimePercentage,
