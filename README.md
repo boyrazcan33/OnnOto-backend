@@ -14,13 +14,13 @@
 
 OnnOto is a backend service for monitoring and analyzing the reliability of electric vehicle charging stations across Estonia. The platform helps EV drivers find reliable charging stations by collecting, analyzing, and presenting real-time data on station availability and performance.
 
-**Performance Metrics:** Achieved **1.28k unique visitors** and **55.21k total requests** within the first month through purely organic growth, demonstrating strong market demand and platform reliability.
+**Performance Metrics:** Achieved **1.28k unique visitors** and **55.21k total requests** within the first month with zero advertising spend ([Analytics Proof](https://i.imgur.com/T3427z2.png)).
 
 <div align="center">
   <details>
     <summary>📊 View Cloudflare Performance Analytics</summary>
     <br/>
-    <img src="https://github.com/user-attachments/assets/ba7bb0c9-6ce3-412a-8d94-4ba30d3181c9" alt="Cloudflare Performance Metrics" width="100%"/>
+    <img src="https://i.imgur.com/T3427z2.png" alt="Cloudflare Performance Metrics" width="100%"/>
   </details>
 </div>
 
