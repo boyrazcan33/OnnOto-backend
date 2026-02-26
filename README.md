@@ -7,12 +7,22 @@
   <img src="https://img.shields.io/badge/JDK-21-blue" alt="JDK Version"/>
   <img src="https://img.shields.io/badge/PostgreSQL-with%20PostGIS-blue" alt="PostgreSQL with PostGIS"/>
   <img src="https://img.shields.io/badge/Redis-Cache-red" alt="Redis"/>
-  <img src="https://img.shields.io/badge/Deployment-Fly.io-purple" alt="Fly.io"/>
+  <img src="https://img.shields.io/badge/Deployment-GCP-blue" alt="Google Cloud Platform"/>
 </div>
 
 ## 🔋 About OnnOto
 
 OnnOto is a backend service for monitoring and analyzing the reliability of electric vehicle charging stations across Estonia. The platform helps EV drivers find reliable charging stations by collecting, analyzing, and presenting real-time data on station availability and performance.
+
+**Performance Metrics:** Achieved **1.28k unique visitors** and **55.21k total requests** within the first month through purely organic growth, demonstrating strong market demand and platform reliability.
+
+<div align="center">
+  <details>
+    <summary>📊 View Cloudflare Performance Analytics</summary>
+    <br/>
+    <img src="https://github.com/user-attachments/assets/ba7bb0c9-6ce3-412a-8d94-4ba30d3181c9" alt="Cloudflare Performance Metrics" width="100%"/>
+  </details>
+</div>
 
 ## ✨ Key Features
 
@@ -31,7 +41,7 @@ OnnOto is a backend service for monitoring and analyzing the reliability of elec
 - **Hibernate Spatial**: For geospatial data handling
 - **JDK 21**: Latest Java features
 - **Docker**: For containerization
-- **Fly.io**: For cloud deployment
+- **Google Cloud Platform**: For cloud deployment
 - **GitHub Actions**: For CI/CD automation
 
 ## 🚀 Getting Started
@@ -46,7 +56,6 @@ OnnOto is a backend service for monitoring and analyzing the reliability of elec
 ### Environment Setup
 
 Clone the repository and create a `.env` file in the project root based on the provided `.env.example`:
-
 ```bash
 # Clone the repository
 git clone https://github.com/boyrazcan33/OnnOto-backend.git
@@ -57,7 +66,6 @@ cp onnoto-backend/.env.example onnoto-backend/.env
 ```
 
 Edit the `.env` file with your database and Redis credentials. Here's an example of what your `.env` file should look like:
-
 ```bash
 # Database Configuration
 ONNOTO_DB_URL=jdbc:postgresql://localhost:5434/onnoto
@@ -79,7 +87,6 @@ GOOGLE_PLACES_API_KEY=your-google-places-api-key
 **Important:** Never commit your actual `.env` file to version control. The `.env` file is included in `.gitignore` to prevent accidental exposure of credentials.
 
 ### Build & Run
-
 ```bash
 # Navigate to backend directory
 cd onnoto-backend
@@ -92,7 +99,6 @@ cd onnoto-backend
 ```
 
 ### Docker Deployment
-
 ```bash
 # Build Docker image
 docker build -t onnoto-backend .
@@ -101,13 +107,13 @@ docker build -t onnoto-backend .
 docker run -p 8087:8087 --env-file onnoto-backend/.env onnoto-backend
 ```
 
-### Fly.io Deployment
+### Google Cloud Platform Deployment
 
-The project includes configuration for Fly.io deployment:
-
+The project is configured for deployment on Google Cloud Platform using Cloud Run:
 ```bash
-# Deploy to Fly.io
-flyctl deploy
+# Build and deploy to GCP Cloud Run
+gcloud builds submit --tag gcr.io/[PROJECT-ID]/onnoto-backend
+gcloud run deploy onnoto-backend --image gcr.io/[PROJECT-ID]/onnoto-backend --platform managed
 ```
 
 ## 📊 API Overview
@@ -132,7 +138,6 @@ flyctl deploy
 - `GET /api/connectors/type/{connectorType}` - Get connectors by type
 
 ## 🏗️ Project Structure
-
 ```
 onnoto-backend/
 ├── src/main/java/com/onnoto/onnoto_backend/
@@ -150,7 +155,6 @@ onnoto-backend/
 ```
 
 ## 🧪 Testing
-
 ```bash
 # Run all tests
 ./mvnw test
@@ -162,7 +166,6 @@ onnoto-backend/
 ## 🔍 Monitoring
 
 The application includes Spring Actuator endpoints for monitoring:
-
 ```
 /actuator/health - Health check
 /actuator/info - Application info
