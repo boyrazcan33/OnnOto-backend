@@ -40,9 +40,6 @@ public class RedisConfig {
     @Value("${spring.redis.password:}")
     private String redisPassword;
 
-    @Value("${spring.redis.apikey:}")
-    private String redisApiKey;
-
     @Value("${spring.redis.ssl:false}")
     private boolean redisSsl;
 
@@ -53,56 +50,43 @@ public class RedisConfig {
         log.info("Port: {}", redisPort);
         log.info("Username: {}", redisUsername);
         log.info("SSL Enabled: {}", redisSsl);
-        log.info("API Key Present: {}", (redisApiKey != null && !redisApiKey.isEmpty()) ? "Yes" : "No");
         log.info("Password Present: {}", (redisPassword != null && !redisPassword.isEmpty()) ? "Yes" : "No");
     }
 
     @Bean
     public RedisConnectionFactory redisConnectionFactory() {
-        try {
-            log.info("Configuring Redis Cloud connection to {}:{} with SSL explicitly disabled", redisHost, redisPort);
-            RedisStandaloneConfiguration config = new RedisStandaloneConfiguration();
-            config.setHostName(redisHost);
-            config.setPort(redisPort);
+        log.info("Configuring Redis connection to {}:{}", redisHost, redisPort);
 
-            // Set username
-            if (redisUsername != null && !redisUsername.isEmpty() && !"default".equals(redisUsername)) {
-                config.setUsername(redisUsername);
-                log.info("Using Redis username: {}", redisUsername);
-            }
+        RedisStandaloneConfiguration config = new RedisStandaloneConfiguration();
+        config.setHostName(redisHost);
+        config.setPort(redisPort);
 
-            // Set password and API key
-            if (redisPassword != null && !redisPassword.isEmpty()) {
-                // If password is provided, use it for authentication
-                config.setPassword(redisPassword);
-                log.info("Using Redis password for authentication");
-            } else if (redisApiKey != null && !redisApiKey.isEmpty()) {
-                // If API key is provided, use it for authentication
-                config.setPassword(redisApiKey);
-                log.info("Using Redis API key for authentication");
-            } else {
-                log.warn("No Redis authentication credentials provided");
-            }
-
-            // Create client configuration without SSL
-            LettuceClientConfiguration clientConfig = LettuceClientConfiguration.builder()
-                    // No SSL configuration - explicitly NOT using SSL
-                    .build();
-
-            log.info("Redis SSL explicitly disabled");
-
-            return new LettuceConnectionFactory(config, clientConfig);
-        } catch (Exception e) {
-            log.error("Failed to create Redis connection factory: {}", e.getMessage(), e);
-            // Log error but allow application to continue without Redis
-            log.warn("Application will continue without Redis. Caching will be disabled.");
-            return null;
+        // Set username if provided and not default
+        if (redisUsername != null && !redisUsername.isEmpty()) {
+            config.setUsername(redisUsername);
+            log.info("Using Redis username: {}", redisUsername);
         }
+
+        // Set password if provided
+        if (redisPassword != null && !redisPassword.isEmpty()) {
+            config.setPassword(redisPassword);
+            log.info("Using Redis password for authentication");
+        } else {
+            log.warn("No Redis password provided");
+        }
+
+        // Create client configuration - SSL explicitly disabled
+        LettuceClientConfiguration clientConfig = LettuceClientConfiguration.builder()
+                .commandTimeout(Duration.ofSeconds(5))
+                .build();
+
+        log.info("Redis SSL explicitly disabled");
+
+        return new LettuceConnectionFactory(config, clientConfig);
     }
 
     @Bean
     public ObjectMapper redisObjectMapper() {
-        // Configure ObjectMapper to handle Java 8 date/time types
         ObjectMapper objectMapper = new ObjectMapper();
         objectMapper.registerModule(new JavaTimeModule());
         objectMapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
@@ -112,48 +96,28 @@ public class RedisConfig {
 
     @Bean
     public RedisCacheManager cacheManager(RedisConnectionFactory connectionFactory) {
-        try {
-            if (connectionFactory == null) {
-                throw new IllegalArgumentException("Redis connection factory is null");
-            }
+        GenericJackson2JsonRedisSerializer jsonSerializer =
+                new GenericJackson2JsonRedisSerializer(redisObjectMapper());
 
-            // Create a serializer that can handle Java 8 date/time types
-            GenericJackson2JsonRedisSerializer jsonSerializer =
-                    new GenericJackson2JsonRedisSerializer(redisObjectMapper());
+        RedisCacheConfiguration defaultConfig = RedisCacheConfiguration.defaultCacheConfig()
+                .entryTtl(Duration.ofMinutes(30))
+                .serializeKeysWith(RedisSerializationContext.SerializationPair
+                        .fromSerializer(new StringRedisSerializer()))
+                .serializeValuesWith(RedisSerializationContext.SerializationPair
+                        .fromSerializer(jsonSerializer));
 
-            // Default cache configuration
-            RedisCacheConfiguration defaultConfig = RedisCacheConfiguration.defaultCacheConfig()
-                    .entryTtl(Duration.ofMinutes(30))  // Default TTL - 30 minutes
-                    .serializeKeysWith(RedisSerializationContext.SerializationPair
-                            .fromSerializer(new StringRedisSerializer()))
-                    .serializeValuesWith(RedisSerializationContext.SerializationPair
-                            .fromSerializer(jsonSerializer));
+        Map<String, RedisCacheConfiguration> cacheConfigurations = new HashMap<>();
+        cacheConfigurations.put("stations", defaultConfig.entryTtl(Duration.ofHours(2)));
+        cacheConfigurations.put("stationDetails", defaultConfig.entryTtl(Duration.ofHours(1)));
+        cacheConfigurations.put("nearbyStations", defaultConfig.entryTtl(Duration.ofMinutes(10)));
+        cacheConfigurations.put("connectors", defaultConfig.entryTtl(Duration.ofMinutes(5)));
+        cacheConfigurations.put("reliability", defaultConfig.entryTtl(Duration.ofHours(4)));
+        cacheConfigurations.put("preferences", defaultConfig.entryTtl(Duration.ofDays(1)));
 
-            // Configure specific TTLs for different caches
-            Map<String, RedisCacheConfiguration> cacheConfigurations = new HashMap<>();
-
-            // Station data - longer TTL, changes less frequently
-            cacheConfigurations.put("stations", defaultConfig.entryTtl(Duration.ofHours(2)));
-            cacheConfigurations.put("stationDetails", defaultConfig.entryTtl(Duration.ofHours(1)));
-
-            // Status data - shorter TTL, changes more frequently
-            cacheConfigurations.put("nearbyStations", defaultConfig.entryTtl(Duration.ofMinutes(10)));
-            cacheConfigurations.put("connectors", defaultConfig.entryTtl(Duration.ofMinutes(5)));
-
-            // Reliability data - medium TTL, updated daily
-            cacheConfigurations.put("reliability", defaultConfig.entryTtl(Duration.ofHours(4)));
-
-            // User preferences - longer TTL, rarely changes
-            cacheConfigurations.put("preferences", defaultConfig.entryTtl(Duration.ofDays(1)));
-
-            log.info("Building Redis cache manager");
-            return RedisCacheManager.builder(connectionFactory)
-                    .cacheDefaults(defaultConfig)
-                    .withInitialCacheConfigurations(cacheConfigurations)
-                    .build();
-        } catch (Exception e) {
-            log.error("Failed to build Redis cache manager: {}", e.getMessage(), e);
-            throw e;
-        }
+        log.info("Building Redis cache manager");
+        return RedisCacheManager.builder(connectionFactory)
+                .cacheDefaults(defaultConfig)
+                .withInitialCacheConfigurations(cacheConfigurations)
+                .build();
     }
 }
